@@ -1,2 +1,2 @@
-# Theapp
+# theapp
 REPO FOR BRDG42 MOBILE APP
