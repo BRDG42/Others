@@ -1,2 +1,2 @@
-# theapp
-REPO FOR BRDG42 MOBILE APP
+# others
+my other proects
