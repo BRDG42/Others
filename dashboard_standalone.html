@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Check-In Dashboard — DCT Abu Dhabi</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/lucide-react@0.383.0/dist/umd/lucide-react.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:'Outfit',sans-serif;background:#F5F4F8;min-height:100vh;}
+    #lock-screen{position:fixed;inset:0;background:linear-gradient(135deg,#2A1D6E 0%,#4832B8 50%,#3826A0 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
+    #app{display:none;}
+    .lock-card{background:rgba(255,255,255,0.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:40px 44px;width:360px;text-align:center;}
+    .lock-logo{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px;}
+    .lock-title{color:#fff;font-size:18px;font-weight:800;margin-bottom:4px;letter-spacing:-0.3px;}
+    .lock-sub{color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:28px;}
+    .lock-input{width:100%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);border-radius:10px;padding:13px 16px;color:#fff;font-size:18px;font-family:'Outfit',sans-serif;letter-spacing:6px;text-align:center;outline:none;transition:border-color 0.2s;}
+    .lock-input:focus{border-color:rgba(255,255,255,0.5);}
+    .lock-input::placeholder{letter-spacing:2px;font-size:13px;color:rgba(255,255,255,0.3);}
+    .lock-btn{width:100%;margin-top:14px;padding:13px;background:#CD3151;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:'Outfit',sans-serif;transition:background 0.2s;}
+    .lock-btn:hover{background:#A62341;}
+    .lock-error{color:#F77860;font-size:12px;margin-top:10px;font-weight:600;min-height:18px;}
+    .lock-badge{display:inline-block;padding:4px 12px;background:rgba(28,150,103,0.2);border:1px solid rgba(28,150,103,0.4);border-radius:20px;color:rgba(28,150,103,0.9);font-size:10px;font-weight:700;letter-spacing:1px;margin-bottom:24px;}
+    @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+    .shake{animation:shake 0.4s ease;}
+  </style>
+</head>
+<body>
+
+<!-- Lock Screen -->
+<div id="lock-screen">
+  <div class="lock-card">
+    <div class="lock-logo">🏨</div>
+    <div class="lock-title">Smart Check-In Dashboard</div>
+    <div class="lock-sub">DCT Abu Dhabi — Face Recognition Programme</div>
+    <div class="lock-badge">🔒 RESTRICTED ACCESS</div>
+    <input id="pwd-input" class="lock-input" type="password" placeholder="Enter passcode" maxlength="20" autocomplete="off"/>
+    <button class="lock-btn" onclick="checkPassword()">Enter Dashboard →</button>
+    <div class="lock-error" id="pwd-error"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="app"></div>
+
+<script>
+  // Password check — stored as SHA-256 hash (not plaintext)
+  const HASH = "323cbf0a06fee2f43ef021811bd9079979490ec3a54cecf4819507ad63d0c825";
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function checkPassword() {
+    const val = document.getElementById('pwd-input').value;
+    const h = await sha256(val);
+    if (h === HASH) {
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      sessionStorage.setItem('dct_auth', '1');
+    } else {
+      const el = document.getElementById('pwd-input');
+      el.classList.remove('shake');
+      void el.offsetWidth;
+      el.classList.add('shake');
+      document.getElementById('pwd-error').textContent = 'Incorrect passcode. Try again.';
+      el.value = '';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('dct_auth') === '1') {
+      document.getElementById('lock-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+    }
+    document.getElementById('pwd-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') checkPassword();
+    });
+  });
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useRef, useEffect, useCallback } = React;
+const {
+  BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer
+} = Recharts;
+const {
+  CheckCircle, Target, Clock, Shield, ChevronDown, ChevronRight,
+  MessageSquare, Loader, Bot, Send, Mail, X, Minimize2, Maximize2,
+  User, RotateCcw, AlertTriangle, Sparkles, ArrowRight, ListChecks,
+  LayoutDashboard, Search, Lock, Unlock, Settings, Save, Upload,
+  History, RefreshCw, Eye, EyeOff, ChevronUp, PlusCircle, Trash2,
+  AlertCircle, FileText, Sliders, FileDown, Printer
+} = LucideReact;
+
+const C = {
+  violet900:'#2A1D6E',violet700:'#3826A0',violet:'#4832B8',violet400:'#6B5CC7',
+  violet200:'#A89EDE',violet100:'#D4CFEF',violet50:'#EEECF9',
+  flamingo700:'#A62341',flamingo:'#CD3151',flamingo300:'#E06B85',flamingo100:'#F5CDD6',flamingo50:'#FDF0F3',
+  palm700:'#147A53',palm:'#1C9667',palm300:'#5BB894',palm100:'#C8E8DC',palm50:'#EDF8F3',
+  amber:'#D97706',amber50:'#FFFBEB',amber100:'#FDE68A',
+  dark:'#1A1535',gray900:'#212033',gray700:'#44425A',gray500:'#7C7A8E',
+  gray300:'#C5C4CF',gray200:'#E0DFE6',gray100:'#F0EFF4',gray50:'#F8F7FB',white:'#FFFFFF',
+};
+
+const PM_PIN = '1234'; // ← Change this to your preferred PIN
+
+// ─── DEFAULT DATA ─────────────────────────────────────────────────────────────
+// Actual % from MPP as of Mar 10, 2026. baseline = MPP baseline, progress = actual.
+const DEFAULT_PHASES = [
+  { id:'initiate', name:'Initiate', start:'2026-01-16', end:'2026-01-22', baseline:100, progress:100, status:'Completed',
+    tasks:[
+      {name:'Discussion Walkthrough',baseline:100,progress:100},
+      {name:'Stakeholder Register',baseline:100,progress:100},
+      {name:'Business Problem / Opportunity',baseline:100,progress:100},
+    ]},
+  { id:'planning', name:'Planning Phase', start:'2026-01-16', end:'2026-03-25', baseline:77, progress:83, status:'In Progress',
+    tasks:[
+      {name:'Scope (BRD, Charter, SOW)',baseline:100,progress:100},
+      {name:'Emergent Design (SDD)',baseline:57,progress:74},
+      {name:'SDD (HLD, LLD) Baselined & Signed off',baseline:40,progress:40},
+      {name:'LLD & Estimation Sign off',baseline:15,progress:15},
+      {name:'Workshop: SDD Decomposition',baseline:95,progress:95},
+      {name:'Exploration & Groundwork',baseline:100,progress:100},
+    ]},
+  { id:'phase1', name:'Phase #1 — Pilot', start:'2026-02-02', end:'2026-04-30', baseline:31, progress:29, status:'In Progress',
+    tasks:[
+      // Development
+      {name:'Development (UX/UI & App)',baseline:100,progress:100},
+      // Infra
+      {name:'Vendor Infra Provision (Azure)',baseline:33,progress:33},
+      {name:'Sovereign Cloud Prep',baseline:10,progress:10},
+      {name:'Infrastructure Provisioning — Dev',baseline:42,progress:29},
+      {name:'Infrastructure Provisioning — QA',baseline:0,progress:0},
+      {name:'Infrastructure Provisioning — UAT',baseline:0,progress:0},
+      {name:'Infrastructure Provisioning — Prod',baseline:0,progress:0},
+      // ICP / Integrations
+      {name:'Integration — ICP SDK Prep (Qpass)',baseline:96,progress:96},
+      {name:'Integration — ICP Journey #0 (Pre Check-In)',baseline:13,progress:13},
+      {name:'Integration — ICP Journey #4 (On-site Verify)',baseline:9,progress:9},
+      {name:'Integration — ICP Journey #2 (Red Carpet)',baseline:10,progress:10},
+      {name:'Integration — AD Police',baseline:48,progress:52},
+      {name:'Integration — VICAS',baseline:19,progress:18},
+      // Hotel
+      {name:'Hotel Onboarding — NDA',baseline:100,progress:100},
+      {name:'Hotel Onboarding — DPA',baseline:50,progress:50},
+      {name:'Hotel Onboarding — Service Agreement',baseline:20,progress:20},
+      {name:'Hotel Prerequisites',baseline:67,progress:67},
+      {name:'Hotel Infrastructure',baseline:0,progress:0},
+      {name:'Hotel Hardware Setup',baseline:0,progress:0},
+      {name:'Hotel Integration — PMS',baseline:0,progress:0},
+      {name:'Hotel Integration — MessageBox',baseline:23,progress:23},
+      {name:'Hotel Go-Live Preparation',baseline:6,progress:9},
+      // QA / Delivery
+      {name:'Training Material',baseline:17,progress:22},
+      {name:'QA Prep (Internal)',baseline:31,progress:31},
+      {name:'QA & UAT',baseline:0,progress:0},
+      {name:'Communication',baseline:0,progress:0},
+      {name:'Training Delivery',baseline:0,progress:0},
+      {name:'Go-Live & CAB Approval',baseline:0,progress:0},
+    ]},
+  { id:'phase2', name:'Phase #2 — Hotel Scaling (40 props)', start:'2026-05-01', end:'2026-06-30', baseline:0, progress:0, status:'Not Started',
+    tasks:[
+      {name:'Engage candidate hotels',baseline:0,progress:0},
+      {name:'Complete list of hotels to scale',baseline:0,progress:0},
+      {name:'Engage PMS vendors',baseline:0,progress:0},
+      {name:'Integrate additional PMS',baseline:0,progress:0},
+      {name:'Onboard, rollout, training & support',baseline:0,progress:0},
+    ]},
+  { id:'phase3', name:'Phase #3 — Mobile Arrival', start:'2026-07-01', end:'2026-07-21', baseline:0, progress:0, status:'Not Started',
+    tasks:[
+      {name:'Mobile Arrival Confirmation (J#1)',baseline:0,progress:0},
+      {name:'QA & UAT',baseline:0,progress:0},
+      {name:'Go-Live & CAB Approval',baseline:0,progress:0},
+    ]},
+  { id:'phase4', name:'Phase #4 — Expanded Rollout (130 props)', start:'2026-07-22', end:'2026-10-27', baseline:0, progress:0, status:'Not Started',
+    tasks:[
+      {name:'Engage & onboard additional hotels',baseline:0,progress:0},
+      {name:'Integrate additional PMS',baseline:0,progress:0},
+      {name:'Rollout, training & support',baseline:0,progress:0},
+    ]},
+  { id:'phase5', name:'Phase #5 — Kiosk (J#3)', start:'2026-10-14', end:'2026-11-30', baseline:0, progress:0, status:'Not Started',
+    tasks:[
+      {name:'Kiosk Arrival Confirmation (J#3)',baseline:0,progress:0},
+      {name:'Kiosk Hardware Setup',baseline:0,progress:0},
+      {name:'Hotel Key Issuance Integration',baseline:0,progress:0},
+      {name:'QA & UAT',baseline:0,progress:0},
+      {name:'Go-Live & CAB Approval',baseline:0,progress:0},
+    ]},
+  { id:'handover', name:'Handover & Closure', start:'2026-05-01', end:'2026-06-23', baseline:0, progress:0, status:'Not Started',
+    tasks:[
+      {name:'Post-Go-Live Stabilization (30d)',baseline:0,progress:0},
+      {name:'Pilot Handover & Closure',baseline:0,progress:0},
+    ]},
+];
+
+const DEFAULT_ACTIONS = [
+  {id:1,item:'Business Requirements Finalization',priority:'Critical',org:'DCT',assigned:'Feras',due:'2026-01-23',status:'Done'},
+  {id:2,item:'Solution Design Finalization (HLD)',priority:'Critical',org:'H2O',assigned:'Bernard / Dipak',due:'2026-01-23',status:'Done'},
+  {id:3,item:'ICP & ADPolice Clarification Session for a full understanding',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'2026-01-23',status:'Done'},
+  {id:4,item:'Project Planning Decomposition and Baselining Workshop',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'2026-02-10',status:'Done'},
+  {id:5,item:'Initial Hotel location clarification, setup, and planning exercise',priority:'Medium',org:'DCT',assigned:'Omar',due:'2026-01-23',status:'Done'},
+  {id:6,item:'Physical Procurements — Kiosks, Red Carpet & Hardware',priority:'Medium',org:'DCT',assigned:'Omar',due:'2026-01-22',status:'Done'},
+  {id:7,item:'Decide & confirm KYC implementation approach (ICP SDK) + SDD update',priority:'Medium',org:'H2O',assigned:'Bernard',due:'2026-01-23',status:'Done'},
+  {id:8,item:'WhatsApp integration ownership & prerequisites',priority:'Medium',org:'H2O',assigned:'Bernard',due:'2026-01-23',status:'Done'},
+  {id:9,item:'Document Checkout Journey Closure Logic',priority:'Medium',org:'H2O',assigned:'Bernard',due:'2026-01-23',status:'Done'},
+  {id:10,item:'QA Onboarding — DCT & H2O Quality Assurance Definition',priority:'Critical',org:'H2O',assigned:'Bernard',due:'2026-01-23',status:'Done'},
+  {id:11,item:'Parallel Stream — Prioritise Other Hotel Groups for Pilot',priority:'Low',org:'H2O',assigned:'Omar',due:'2026-01-23',status:'Done'},
+  {id:12,item:'RACI & Resource Alignment with Vendor PM',priority:'Critical',org:'H2O',assigned:'Rajeev',due:'2026-01-23',status:'Done'},
+  {id:13,item:'Onboarding H2O Resources onto DCT Network',priority:'Critical',org:'H2O',assigned:'Rajeev',due:'2026-01-26',status:'Done'},
+  {id:14,item:'Formal Email to Rotana — Prerequisites & Kickoff',priority:'Medium',org:'H2O',assigned:'Bernard',due:'2026-01-30',status:'Done'},
+  {id:15,item:'Recurring Touchpoint Setup with Rotana',priority:'Medium',org:'H2O',assigned:'Bernard',due:'2026-01-30',status:'Done'},
+  {id:16,item:'Temp VM Provisioning for SDK Testing',priority:'Critical',org:'H2O',assigned:'Rajeev',due:'2026-01-30',status:'Done'},
+  {id:17,item:'BI & Data Team Scope Inclusion in Face Recognition Project',priority:'Low',org:'H2O',assigned:'Omar',due:'2026-01-26',status:'Done'},
+  {id:18,item:'Kiosk Branding & Webpage UI Design Requirements',priority:'Medium',org:'DCT',assigned:'Bernard',due:'2026-03-16',status:'25%'},
+  {id:19,item:'Confirm Branding for Pre-Check-In Webpage UI',priority:'Medium',org:'DCT',assigned:'Omar',due:'2026-02-04',status:'Done'},
+  {id:20,item:'Infra Provisioning Request and Completion',priority:'High',org:'H2O',assigned:'Bernard',due:'2026-02-05',status:'Done'},
+  {id:21,item:'QPASS (ICP-SDK) Dashboard Access — Full Onboarding',priority:'High',org:'H2O',assigned:'ICP / Majdi',due:'2026-02-09',status:'Done'},
+  {id:22,item:'Scheduling Sessions with Samsotech for VICAS Integration',priority:'High',org:'H2O',assigned:'Bernard',due:'2026-02-25',status:'25%'},
+  {id:23,item:'VICAS Integration Procurement',priority:'High',org:'DCT',assigned:'Rajeev',due:'2026-02-25',status:'25%'},
+  {id:24,item:'VICAS & H2O Clarification Session',priority:'High',org:'H2O',assigned:'Bernard',due:'2026-02-24',status:'Done'},
+  {id:25,item:'Finalize VICAS Integration Data Dictionary',priority:'High',org:'—',assigned:'—',due:'—',status:'Done'},
+  {id:26,item:'ICP QuePass SDK Integration POC Readiness',priority:'High',org:'H2O',assigned:'Bernard',due:'2026-02-24',status:'Done'},
+  {id:27,item:'SDK Repo & Dashboard Access Provision to H2O',priority:'High',org:'DCT',assigned:'Majdi',due:'2026-02-24',status:'Done'},
+  {id:28,item:'H2O Access to Temp Windows VM for ICP SDK',priority:'High',org:'—',assigned:'—',due:'—',status:'Done'},
+  {id:29,item:'Hotel Onboarding Readiness Checklist',priority:'Critical',org:'—',assigned:'Bernard',due:'2026-02-25',status:'Not Started'},
+  {id:30,item:'Confirm Open Questions on BRD, HLD, LLD',priority:'Critical',org:'—',assigned:'Bernard',due:'—',status:'50%'},
+  {id:31,item:'Marriott IT Security & Compliance Process',priority:'Medium',org:'—',assigned:'Bernard',due:'2026-02-26',status:'25%'},
+  {id:32,item:'Hotel Categorization Strategy & Scaling Plan',priority:'Medium',org:'—',assigned:'Bernard',due:'—',status:'Pending'},
+  {id:33,item:'ICP Integration & Connection',priority:'Critical',org:'ICP',assigned:'Keshav',due:'2026-02-26',status:'75%'},
+  {id:34,item:'Completion of Proposal & Procurement for H2O',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'—',status:'Not Started'},
+  {id:35,item:'Completion of Proposal & Procurement for SamsoTech (VICAS)',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'—',status:'Not Started'},
+  {id:36,item:'Security Questionnaire for ICP Onboarding & Network',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'—',status:'Not Started'},
+  {id:37,item:'SteerCO Update Slide Deck Preparation',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'—',status:'Not Started'},
+  {id:38,item:'LLD Content Definition — What Should Go Into LLD',priority:'Medium',org:'DCT',assigned:'Rajeev',due:'—',status:'10%'},
+  {id:39,item:'VICAS Integration #2 — Follow-on Actions',priority:'Low',org:'DCT',assigned:'Rajeev',due:'—',status:'10%'},
+];
+
+const DEFAULT_MILESTONES = [
+  {
+    id:'sdk', name:'SDK Testing Complete', date:'Apr 3, 2026', dateShort:'Apr 3',
+    done:false, pct:96,
+    desc:'ICP QuePass SDK fully integrated & sandbox-tested (Journey #0). KYC process confirmed end-to-end.',
+    owner:'Bernard / ICP', risk:'low',
+    icon:'🔐'
+  },
+  {
+    id:'adpolice', name:'AD Police Integration', date:'Mar 31, 2026', dateShort:'Mar 31',
+    done:false, pct:52,
+    desc:'Full SIT with AD Police completed. Data flow confirmed, arrival/departure events flowing correctly.',
+    owner:'Bernard / DCT', risk:'medium',
+    icon:'🚔'
+  },
+  {
+    id:'infra', name:'Infrastructure Ready', date:'Mar 26, 2026', dateShort:'Mar 26',
+    done:false, pct:18,
+    desc:'All environments (Dev/QA/UAT/Prod) provisioned on DCT sovereign cloud. CI/CD pipelines live.',
+    owner:'Bernard / Dijesh', risk:'high',
+    icon:'☁️'
+  },
+  {
+    id:'opera', name:'Opera PMS Integration', date:'Apr 7, 2026', dateShort:'Apr 7',
+    done:false, pct:11,
+    desc:'Rotana Opera Cloud connected via OHIP. PMS agent installed on DCT cloud. Pre-check-in data flowing.',
+    owner:'Bernard / Rotana IT', risk:'high',
+    icon:'🏨'
+  },
+  {
+    id:'golive', name:'Pilot Go-Live', date:'Apr 30, 2026', dateShort:'Apr 30',
+    done:false, pct:0,
+    desc:'Smart Check-In live at Saadiyat Rotana. CAB approved. All journeys active: Pre-Check-In, Red Carpet, On-site Verify.',
+    owner:'Omar / All', risk:'critical',
+    icon:'🚀'
+  },
+];
+
+// ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
+const STORAGE_KEY = 'dct_smartcheckin_data';
+
+const loadFromStorage = async () => {
+  try {
+    const result = await window.storage.get(STORAGE_KEY);
+    if (result && result.value) return JSON.parse(result.value);
+  } catch(e) {}
+  return null;
+};
+
+const saveToStorage = async (data) => {
+  try {
+    await window.storage.set(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch(e) { return false; }
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const STATUS_BG = {'Completed':C.palm50,'In Progress':C.violet50,'Not Started':C.gray100};
+const STATUS_FG = {'Completed':C.palm700,'In Progress':C.violet,'Not Started':C.gray500};
+
+const statusColor = (s) => {
+  if (s==='Done') return {bg:C.palm50,fg:C.palm700};
+  if (s==='75%') return {bg:C.violet50,fg:C.violet};
+  if (s==='50%') return {bg:'#EFF6FF',fg:'#2563EB'};
+  if (s==='25%') return {bg:C.amber50,fg:C.amber};
+  if (s==='10%') return {bg:'#FFF7ED',fg:'#C2410C'};
+  if (s==='Not Started') return {bg:C.flamingo50,fg:C.flamingo};
+  return {bg:C.gray100,fg:C.gray500};
+};
+
+const priorityColor = (p) => {
+  if (p==='Critical') return {bg:'#FFF1F2',fg:C.flamingo};
+  if (p==='High') return {bg:C.amber50,fg:C.amber};
+  if (p==='Medium') return {bg:C.violet50,fg:C.violet};
+  return {bg:C.gray100,fg:C.gray500};
+};
+
+const derivePhaseStatus = (progress) => {
+  if (progress === 100) return 'Completed';
+  if (progress > 0) return 'In Progress';
+  return 'Not Started';
+};
+
+const computeOverall = (phases) => {
+  const totalTasks = phases.flatMap(p => p.tasks);
+  if (!totalTasks.length) return 0;
+  return Math.round(totalTasks.reduce((s, t) => s + (t.progress||0), 0) / totalTasks.length);
+};
+
+const computeBaselineOverall = (phases) => {
+  const totalTasks = phases.flatMap(p => p.tasks);
+  if (!totalTasks.length) return 0;
+  return Math.round(totalTasks.reduce((s, t) => s + (t.baseline||0), 0) / totalTasks.length);
+};
+
+// ─── PARSE TRACKER TSV ───────────────────────────────────────────────────────
+const parseTrackerTSV = (raw) => {
+  const lines = raw.trim().split('\n').filter(l => l.trim());
+  const rows = [];
+  for (const line of lines) {
+    const cols = line.split('\t').map(c => c.trim());
+    if (cols.length < 3) continue;
+    // Try to detect header row
+    if (/sr#|action item|priority/i.test(cols[0] + cols[1])) continue;
+    const [id, item, priority, org, assigned, due, status] = cols;
+    if (!item || item.length < 3) continue;
+    const numId = parseInt(id);
+    rows.push({
+      id: isNaN(numId) ? rows.length + 1 : numId,
+      item: item || '',
+      priority: priority || 'Medium',
+      org: org || '—',
+      assigned: assigned || '—',
+      due: due || '—',
+      status: status || 'Pending',
+    });
+  }
+  return rows;
+};
+
+// ─── PIN GATE ─────────────────────────────────────────────────────────────────
+function PINGate({ onUnlock }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const attempt = (p) => {
+    if (p === PM_PIN) { onUnlock(); }
+    else {
+      setError(true); setShake(true); setPin('');
+      setTimeout(() => setShake(false), 500);
+      setTimeout(() => setError(false), 2000);
+    }
+  };
+
+  const press = (d) => {
+    if (d === '⌫') { setPin(p => p.slice(0, -1)); return; }
+    const next = pin + d;
+    setPin(next);
+    if (next.length === 4) attempt(next);
+  };
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'32px 24px'}}>
+      <div style={{width:52,height:52,borderRadius:14,background:`linear-gradient(135deg, ${C.violet900}, ${C.violet})`,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16,boxShadow:`0 8px 24px ${C.violet}40`}}>
+        <Lock size={22} color={C.white}/>
+      </div>
+      <p style={{fontWeight:700,fontSize:15,color:C.dark,margin:'0 0 4px'}}>PM Control Panel</p>
+      <p style={{fontSize:12,color:C.gray500,margin:'0 0 24px',textAlign:'center'}}>Enter your 4-digit PIN to access project controls</p>
+
+      {/* PIN dots */}
+      <div style={{display:'flex',gap:12,marginBottom:24,animation:shake?'shake 0.4s ease':'none'}}>
+        {[0,1,2,3].map(i=>(
+          <div key={i} style={{width:14,height:14,borderRadius:'50%',border:`2px solid ${error?C.flamingo:pin.length>i?C.violet:C.violet200}`,background:pin.length>i?(error?C.flamingo:C.violet):'transparent',transition:'all 0.15s'}}/>
+        ))}
+      </div>
+
+      {/* Keypad */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,width:200}}>
+        {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((d,i)=>(
+          <button key={i} onClick={()=>d&&press(d)} disabled={!d}
+            style={{height:52,borderRadius:12,border:`1.5px solid ${d?C.violet100:'transparent'}`,background:d?C.white:'transparent',cursor:d?'pointer':'default',fontSize:d==='⌫'?16:18,fontWeight:700,color:d==='⌫'?C.gray500:C.dark,fontFamily:'inherit',transition:'all 0.12s',boxShadow:d?'0 1px 4px rgba(72,50,184,0.06)':'none'}}
+            onMouseEnter={e=>d&&(e.target.style.background=C.violet50)}
+            onMouseLeave={e=>d&&(e.target.style.background=C.white)}>
+            {d}
+          </button>
+        ))}
+      </div>
+      {error&&<p style={{fontSize:11,color:C.flamingo,marginTop:14,fontWeight:600}}>Incorrect PIN. Try again.</p>}
+      <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}`}</style>
+    </div>
+  );
+}
+
+// ─── PM PANEL ─────────────────────────────────────────────────────────────────
+function PMPanel({ phases, actions, changelog, onSavePhases, onSaveActions, onClose }) {
+  const [activeTab, setActiveTab] = useState('phases');
+
+  // ── Phase editor state
+  const [editPhases, setEditPhases] = useState(() =>
+    phases.map(p => ({ ...p, tasks: p.tasks.map(t => ({ ...t })) }))
+  );
+
+  // ── Tracker paste state
+  const [trackerRaw, setTrackerRaw] = useState('');
+  const [parsedActions, setParsedActions] = useState(null);
+  const [parseError, setParseError] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
+
+  const updateTaskProgress = (phaseIdx, taskIdx, val) => {
+    setEditPhases(prev => {
+      const next = prev.map(p => ({ ...p, tasks: p.tasks.map(t => ({ ...t })) }));
+      next[phaseIdx].tasks[taskIdx].progress = val;
+      // Auto-compute phase progress
+      const tasks = next[phaseIdx].tasks;
+      next[phaseIdx].progress = Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length);
+      next[phaseIdx].status = derivePhaseStatus(next[phaseIdx].progress);
+      return next;
+    });
+  };
+
+  const handleParseTracker = () => {
+    setParseError('');
+    if (!trackerRaw.trim()) { setParseError('Please paste your tracker data first.'); return; }
+    const rows = parseTrackerTSV(trackerRaw);
+    if (!rows.length) { setParseError('Could not parse any rows. Make sure you copied from Excel (tab-separated).'); return; }
+    setParsedActions(rows);
+  };
+
+  const flash = (msg) => { setSaveMsg(msg); setTimeout(() => setSaveMsg(''), 2500); };
+
+  const handleSavePhases = () => { onSavePhases(editPhases); flash('✓ Phase progress saved and dashboard updated.'); };
+  const handleSaveActions = () => {
+    if (!parsedActions) { setParseError('Parse the tracker first.'); return; }
+    onSaveActions(parsedActions);
+    setParsedActions(null); setTrackerRaw('');
+    flash(`✓ Tracker updated — ${parsedActions.length} actions loaded.`);
+  };
+
+  const pTabs = [
+    { id:'phases', label:'Edit Phases', icon:<Sliders size={13}/> },
+    { id:'tracker', label:'Paste Tracker', icon:<Upload size={13}/> },
+    { id:'changelog', label:`Changelog (${changelog.length})`, icon:<History size={13}/> },
+  ];
+
+  return (
+    <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+      {/* Panel header */}
+      <div style={{background:`linear-gradient(135deg, ${C.dark}, ${C.violet900})`,padding:'16px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={{width:32,height:32,borderRadius:8,background:'rgba(255,255,255,0.12)',display:'flex',alignItems:'center',justifyContent:'center'}}><Settings size={15} color={C.white}/></div>
+          <div>
+            <p style={{margin:0,color:C.white,fontSize:13,fontWeight:700}}>PM Control Panel</p>
+            <p style={{margin:0,color:C.violet200,fontSize:10}}>Update project data · Changes persist across sessions</p>
+          </div>
+        </div>
+        <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',borderRadius:7,padding:'7px',cursor:'pointer',display:'flex'}}><X size={15} color={C.white}/></button>
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{display:'flex',borderBottom:`2px solid ${C.violet100}`,background:C.white,flexShrink:0}}>
+        {pTabs.map(t=>(
+          <button key={t.id} onClick={()=>setActiveTab(t.id)}
+            style={{flex:1,padding:'11px 8px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:11,display:'flex',alignItems:'center',justifyContent:'center',gap:5,color:activeTab===t.id?C.violet:C.gray500,borderBottom:activeTab===t.id?`2px solid ${C.violet}`:'2px solid transparent',marginBottom:-2,transition:'all 0.15s'}}>
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Content area */}
+      <div style={{flex:1,overflowY:'auto',padding:'20px'}}>
+
+        {/* ── PHASES TAB ── */}
+        {activeTab==='phases'&&(
+          <div>
+            <p style={{fontSize:12,color:C.gray500,marginBottom:16}}>Drag sliders or type values to update task completion. Phase % auto-calculates from its tasks.</p>
+            {editPhases.map((phase, pi) => (
+              <div key={phase.id} style={{marginBottom:20,background:C.white,borderRadius:10,border:`1px solid ${C.violet100}`,overflow:'hidden'}}>
+                <div style={{padding:'10px 14px',background:C.violet50,display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:`1px solid ${C.violet100}`}}>
+                  <span style={{fontWeight:700,fontSize:12,color:C.dark}}>{phase.name}</span>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{height:6,width:80,background:C.violet100,borderRadius:3}}><div style={{height:6,borderRadius:3,width:`${phase.progress}%`,background:phase.progress===100?C.palm:`linear-gradient(90deg,${C.violet},${C.violet400})`}}/></div>
+                    <span style={{fontSize:11,fontWeight:800,color:phase.progress===100?C.palm700:C.violet,minWidth:32}}>{phase.progress}%</span>
+                  </div>
+                </div>
+                <div style={{padding:'10px 14px'}}>
+                  {phase.tasks.map((task, ti) => (
+                    <div key={ti} style={{display:'grid',gridTemplateColumns:'1fr 140px 44px',gap:10,alignItems:'center',padding:'6px 0',borderBottom:ti<phase.tasks.length-1?`1px solid ${C.gray100}`:'none'}}>
+                      <span style={{fontSize:11,color:C.gray700}}>{task.name}</span>
+                      <input type="range" min={0} max={100} step={5} value={task.progress}
+                        onChange={e=>updateTaskProgress(pi,ti,parseInt(e.target.value))}
+                        style={{accentColor:C.violet,cursor:'pointer',width:'100%'}}/>
+                      <div style={{display:'flex',alignItems:'center'}}>
+                        <input type="number" min={0} max={100} value={task.progress}
+                          onChange={e=>updateTaskProgress(pi,ti,Math.min(100,Math.max(0,parseInt(e.target.value)||0)))}
+                          style={{width:42,padding:'3px 5px',border:`1px solid ${C.violet100}`,borderRadius:6,fontSize:11,fontWeight:700,color:C.violet,textAlign:'center',outline:'none',fontFamily:'inherit'}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <button onClick={handleSavePhases}
+              style={{width:'100%',padding:'11px',background:`linear-gradient(135deg,${C.violet},${C.violet700})`,border:'none',borderRadius:10,color:C.white,fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+              <Save size={15}/> Save Phase Updates
+            </button>
+            {saveMsg&&<p style={{fontSize:12,color:C.palm700,textAlign:'center',marginTop:10,fontWeight:600}}>{saveMsg}</p>}
+          </div>
+        )}
+
+        {/* ── TRACKER TAB ── */}
+        {activeTab==='tracker'&&(
+          <div>
+            <div style={{background:C.violet50,borderRadius:10,padding:'12px 14px',marginBottom:16,border:`1px solid ${C.violet100}`}}>
+              <p style={{fontSize:12,fontWeight:700,color:C.violet700,margin:'0 0 6px',display:'flex',alignItems:'center',gap:6}}><FileText size={13}/> How to paste from Excel</p>
+              <ol style={{margin:0,paddingLeft:18,fontSize:11,color:C.gray700,lineHeight:1.8}}>
+                <li>Open your Action Tracker Excel file</li>
+                <li>Select all rows in the <strong>AT sheet</strong> (including the header)</li>
+                <li>Copy (Ctrl+C / Cmd+C)</li>
+                <li>Paste below and click Parse</li>
+              </ol>
+            </div>
+
+            <label style={{fontSize:11,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6,display:'block',marginBottom:6}}>Paste tracker data here</label>
+            <textarea value={trackerRaw} onChange={e=>{setTrackerRaw(e.target.value);setParsedActions(null);setParseError('');}}
+              placeholder={'Sr#\tAction Item\tPriority\tOrganisation\tAssigned\tDue\tStatus\n1\tBusiness Requirements...\tCritical\tDCT\tFeras\t2026-01-23\tDone\n...'}
+              style={{width:'100%',boxSizing:'border-box',height:160,padding:'10px 12px',background:C.gray50,border:`1.5px solid ${C.violet100}`,borderRadius:10,fontSize:11,fontFamily:'monospace',color:C.dark,resize:'vertical',outline:'none'}}
+              onFocus={e=>e.target.style.borderColor=C.violet}
+              onBlur={e=>e.target.style.borderColor=C.violet100}/>
+
+            {parseError&&<p style={{fontSize:11,color:C.flamingo,margin:'6px 0 0',display:'flex',alignItems:'center',gap:5}}><AlertCircle size={12}/>{parseError}</p>}
+
+            <div style={{display:'flex',gap:8,marginTop:10}}>
+              <button onClick={handleParseTracker}
+                style={{flex:1,padding:'9px',background:C.violet50,border:`1px solid ${C.violet}`,borderRadius:8,color:C.violet,fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                <RefreshCw size={13}/> Parse & Preview
+              </button>
+              {parsedActions&&(
+                <button onClick={handleSaveActions}
+                  style={{flex:1,padding:'9px',background:`linear-gradient(135deg,${C.palm},${C.palm700})`,border:'none',borderRadius:8,color:C.white,fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                  <Save size={13}/> Apply {parsedActions.length} Rows
+                </button>
+              )}
+            </div>
+
+            {parsedActions&&(
+              <div style={{marginTop:14}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                  <p style={{fontSize:12,fontWeight:700,color:C.palm700,margin:0}}>✓ Parsed {parsedActions.length} actions — preview:</p>
+                  <button onClick={()=>setParsedActions(null)} style={{background:'none',border:'none',cursor:'pointer',color:C.gray500,fontSize:11,fontFamily:'inherit'}}>Clear</button>
+                </div>
+                <div style={{background:C.gray50,borderRadius:8,border:`1px solid ${C.gray200}`,maxHeight:220,overflowY:'auto'}}>
+                  {parsedActions.slice(0,20).map((a,i)=>{
+                    const sc=statusColor(a.status);
+                    return(
+                      <div key={i} style={{display:'grid',gridTemplateColumns:'28px 1fr 70px 60px',gap:8,padding:'7px 10px',borderBottom:i<parsedActions.length-1?`1px solid ${C.gray200}`:'none',alignItems:'center'}}>
+                        <span style={{fontSize:10,color:C.gray400,fontWeight:700}}>#{a.id}</span>
+                        <span style={{fontSize:11,color:C.dark,lineHeight:1.3}}>{a.item.slice(0,55)}{a.item.length>55?'…':''}</span>
+                        <span style={{fontSize:10,color:C.gray600}}>{a.assigned.slice(0,12)}</span>
+                        <span style={{padding:'2px 6px',borderRadius:10,fontSize:10,fontWeight:700,background:sc.bg,color:sc.fg,textAlign:'center'}}>{a.status}</span>
+                      </div>
+                    );
+                  })}
+                  {parsedActions.length>20&&<p style={{fontSize:10,color:C.gray500,textAlign:'center',padding:'8px 0',margin:0}}>…and {parsedActions.length-20} more</p>}
+                </div>
+              </div>
+            )}
+            {saveMsg&&<p style={{fontSize:12,color:C.palm700,textAlign:'center',marginTop:10,fontWeight:600}}>{saveMsg}</p>}
+          </div>
+        )}
+
+        {/* ── CHANGELOG TAB ── */}
+        {activeTab==='changelog'&&(
+          <div>
+            {changelog.length===0?(
+              <div style={{textAlign:'center',padding:'40px 20px',color:C.gray400}}>
+                <History size={32} style={{marginBottom:10,opacity:0.4}}/>
+                <p style={{fontSize:12,margin:0}}>No updates yet. Changes you make will appear here.</p>
+              </div>
+            ):(
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {[...changelog].reverse().map((entry,i)=>(
+                  <div key={i} style={{background:C.white,borderRadius:10,border:`1px solid ${C.violet100}`,padding:'12px 14px',position:'relative',overflow:'hidden'}}>
+                    <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:entry.type==='phases'?C.violet:C.palm}}/>
+                    <div style={{paddingLeft:8}}>
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                        <span style={{fontSize:11,fontWeight:700,color:entry.type==='phases'?C.violet:C.palm700}}>{entry.type==='phases'?'Phase Progress Update':'Action Tracker Update'}</span>
+                        <span style={{fontSize:10,color:C.gray400}}>{entry.timestamp}</span>
+                      </div>
+                      <p style={{fontSize:12,color:C.gray700,margin:'0 0 4px'}}>{entry.summary}</p>
+                      {entry.detail&&<p style={{fontSize:10,color:C.gray500,margin:0,lineHeight:1.5}}>{entry.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── PM MODAL WRAPPER ─────────────────────────────────────────────────────────
+function PMModal({ phases, actions, changelog, onSavePhases, onSaveActions, onClose }) {
+  const [unlocked, setUnlocked] = useState(false);
+  return (
+    <div style={{position:'fixed',inset:0,zIndex:2000,display:'flex',alignItems:'stretch',justifyContent:'flex-end',backdropFilter:'blur(6px)',background:'rgba(26,21,53,0.5)'}}
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{width:520,maxWidth:'95vw',background:C.gray50,display:'flex',flexDirection:'column',boxShadow:'-16px 0 48px rgba(26,21,53,0.25)',animation:'slideIn 0.25s ease'}}>
+        {!unlocked
+          ? <PINGate onUnlock={()=>setUnlocked(true)}/>
+          : <PMPanel phases={phases} actions={actions} changelog={changelog} onSavePhases={onSavePhases} onSaveActions={onSaveActions} onClose={onClose}/>
+        }
+      </div>
+      <style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}`}</style>
+    </div>
+  );
+}
+
+// ─── CHART TOOLTIP ────────────────────────────────────────────────────────────
+const Tip = ({active,payload,label}) => {
+  if(!active||!payload?.length) return null;
+  return (
+    <div style={{background:C.white,border:`1px solid ${C.violet100}`,borderRadius:10,padding:'10px 14px',boxShadow:'0 4px 16px rgba(72,50,184,0.10)'}}>
+      <p style={{margin:0,fontWeight:700,color:C.dark,fontSize:12}}>{label}</p>
+      {payload.filter(p=>p.value>0&&p.dataKey!=='start').map((p,i)=>(
+        <p key={i} style={{margin:'4px 0 0',fontSize:11,color:C.gray700}}>
+          <span style={{display:'inline-block',width:8,height:8,borderRadius:2,background:p.color,marginRight:6}}/>
+          {p.dataKey==='done'?'Completed':p.dataKey==='rem'?'Remaining':p.name}: {p.value}{p.dataKey==='progress'?'%':' days'}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+// ─── EMAIL MODAL ──────────────────────────────────────────────────────────────
+function EmailModal({onClose}) {
+  const [form,setForm]=useState({name:'',email:'',subject:'',message:''});
+  const handleSend = () => {
+    if(!form.name||!form.email||!form.message) return;
+    const subject = encodeURIComponent(form.subject || 'Smart Check-In Project Update');
+    const body = encodeURIComponent(
+      `From: ${form.name} <${form.email}>\n\n${form.message}\n\n---\nSent via Smart Check-In Dashboard`
+    );
+    window.open(`mailto:oalfarran@dctabudhabi.ae?subject=${subject}&body=${body}`, '_blank');
+    onClose();
+  };
+  const inp=(field,ph,multi=false)=>{
+    const s={width:'100%',boxSizing:'border-box',padding:multi?'10px 12px':'9px 12px',background:C.gray50,border:`1.5px solid ${C.violet100}`,borderRadius:8,fontSize:12,color:C.dark,outline:'none',fontFamily:'inherit',resize:multi?'vertical':undefined,minHeight:multi?90:undefined,transition:'border-color 0.2s'};
+    return multi
+      ?<textarea value={form[field]} onChange={e=>setForm(p=>({...p,[field]:e.target.value}))} placeholder={ph} style={s} rows={4} onFocus={e=>e.target.style.borderColor=C.violet} onBlur={e=>e.target.style.borderColor=C.violet100}/>
+      :<input value={form[field]} onChange={e=>setForm(p=>({...p,[field]:e.target.value}))} placeholder={ph} style={s} onFocus={e=>e.target.style.borderColor=C.violet} onBlur={e=>e.target.style.borderColor=C.violet100}/>;
+  };
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(26,21,53,0.65)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:'blur(4px)'}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.white,borderRadius:16,width:460,maxWidth:'94vw',overflow:'hidden',boxShadow:'0 24px 64px rgba(26,21,53,0.28)'}}>
+        <div style={{background:`linear-gradient(135deg,${C.violet900},${C.violet})`,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:34,height:34,borderRadius:8,background:'rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><Mail size={16} color={C.white}/></div>
+            <div><p style={{margin:0,color:C.white,fontSize:13,fontWeight:700}}>Contact Project Team</p><p style={{margin:0,color:C.violet200,fontSize:10}}>Reach the DCT Smart Check-In PM directly</p></div>
+          </div>
+          <button onClick={onClose} style={{background:'rgba(255,255,255,0.1)',border:'none',borderRadius:6,padding:6,cursor:'pointer',display:'flex'}}><X size={14} color={C.white}/></button>
+        </div>
+        <div style={{padding:'20px'}}>
+          {(
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              <div style={{background:C.violet50,borderRadius:8,padding:'10px 12px',display:'flex',gap:8,alignItems:'flex-start'}}>
+                <AlertTriangle size={13} color={C.violet} style={{marginTop:1,flexShrink:0}}/>
+                <p style={{margin:0,fontSize:11,color:C.violet700,lineHeight:1.5}}>Opens your email client addressed to <strong>oalfarran@dctabudhabi.ae</strong> with the form pre-filled. Press Send from your mail app to deliver.</p>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+                <div><label style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6,display:'block',marginBottom:5}}>Your Name *</label>{inp('name','Full name')}</div>
+                <div><label style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6,display:'block',marginBottom:5}}>Email *</label>{inp('email','your@email.com')}</div>
+              </div>
+              <div><label style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6,display:'block',marginBottom:5}}>Subject</label>{inp('subject','e.g. VICAS procurement status')}</div>
+              <div><label style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6,display:'block',marginBottom:5}}>Message *</label>{inp('message','Describe your question or update request...', true)}</div>
+              <div style={{display:'flex',gap:8,justifyContent:'flex-end',paddingTop:4}}>
+                <button onClick={onClose} style={{background:C.gray100,border:'none',borderRadius:8,padding:'9px 18px',color:C.gray700,fontSize:12,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                <button onClick={handleSend} disabled={!form.name||!form.email||!form.message}
+                  style={{background:(!form.name||!form.email||!form.message)?C.violet200:C.violet,border:'none',borderRadius:8,padding:'9px 20px',color:C.white,fontSize:12,fontWeight:700,cursor:(!form.name||!form.email||!form.message)?'not-allowed':'pointer',display:'flex',alignItems:'center',gap:6}}>
+                  <Send size={13}/>Open in Email Client
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CTO ADVISOR ─────────────────────────────────────────────────────────────
+const SUGGESTED_QUESTIONS = [
+  {label:'What are the top 3 blockers to April 30?',icon:'🚨'},
+  {label:'Rate this project Red/Amber/Green',icon:'🚦'},
+  {label:'Is Opera PMS integration at risk?',icon:'🏨'},
+  {label:'How does OHIP affect our Rotana timeline?',icon:'🔗'},
+  {label:'What should Bernard close this week?',icon:'👤'},
+  {label:'Is infra provisioning going to slip Go-Live?',icon:'☁️'},
+  {label:'What are best practices for hotel mobile check-in rollout?',icon:'📱'},
+  {label:'What does Rajeev need to unblock?',icon:'🎯'},
+  {label:'How should we sequence the Phase 2 hotel onboarding?',icon:'🏗️'},
+  {label:'What is the AD Police integration risk?',icon:'🚔'},
+];
+
+function buildProjectContext(phases, actions) {
+  const open = actions.filter(a => a.status !== 'Done');
+  const critical = open.filter(a => a.priority === 'Critical');
+  const overdue = actions.filter(a => a.due && a.due !== '—' && new Date(a.due) < new Date('2026-03-04') && a.status !== 'Done');
+  const overall = computeOverall(phases);
+  return `You are a CTO-level advisor for the Smart Check-In (Face Recognition) project at DCT Abu Dhabi.
+
+LIVE PROJECT DATA:
+Overall progress: ${overall}%. Pilot Go-Live: April 30, 2026.
+
+PHASE STATUS:
+${phases.map(p=>`- ${p.name}: ${p.progress}% (${p.status})`).join('\n')}
+
+ACTION TRACKER (${actions.length} items):
+- Done: ${actions.filter(a=>a.status==='Done').length}
+- 75%: ${actions.filter(a=>a.status==='75%').length} | 50%: ${actions.filter(a=>a.status==='50%').length} | 25%: ${actions.filter(a=>a.status==='25%').length}
+- Not Started: ${actions.filter(a=>a.status==='Not Started').length} | Pending: ${actions.filter(a=>a.status==='Pending').length}
+
+CRITICAL OPEN ITEMS:
+${critical.map(a=>`- #${a.id} [${a.status}] ${a.item} → ${a.assigned}`).join('\n')}
+
+OVERDUE ITEMS:
+${overdue.length ? overdue.map(a=>`- #${a.id} ${a.item} — due ${a.due}, status ${a.status}, owner ${a.assigned}`).join('\n') : 'None'}
+
+Answer concisely and directly, referencing specific action IDs. Max 220 words unless asked for detail.`;
+}
+
+function CTOAdvisor({phases, actions, onEmailOpen}) {
+  const [messages,setMessages]=useState([{role:'assistant',content:"Hello! I'm your Project Advisory Agent, connected to live project data.\n\nAsk me anything about project health, risks, blockers, or specific owners.",ts:new Date()}]);
+  const [input,setInput]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [expanded,setExpanded]=useState(true);
+  const [showSuggestions,setShowSuggestions]=useState(true);
+  const bottomRef=useRef(null);
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[messages,loading]);
+
+  const sendMessage=async(text)=>{
+    const userText=(text||input).trim();
+    if(!userText||loading) return;
+    setInput(''); setShowSuggestions(false);
+    const userMsg={role:'user',content:userText,ts:new Date()};
+    setMessages(prev=>[...prev,userMsg]); setLoading(true);
+    const history=[...messages,userMsg].map(m=>({role:m.role,content:m.content}));
+    try {
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,system:buildProjectContext(phases,actions),messages:history})});
+      const data=await res.json();
+      const txt=data.content?.filter(b=>b.type==='text').map(b=>b.text).join('\n')||'No response.';
+      setMessages(prev=>[...prev,{role:'assistant',content:txt,ts:new Date()}]);
+    } catch(e){setMessages(prev=>[...prev,{role:'assistant',content:'⚠️ Connection error.',ts:new Date()}]);}
+    setLoading(false);
+  };
+
+  const handleKey=(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}};
+  const renderMsg=(content)=>content.split('\n').map((line,i)=>{
+    const clean=line.replace(/\*\*/g,'').replace(/^#+\s*/,'');
+    if(line.match(/^#{1,3}\s/)||line.match(/^\*\*.+\*\*$/)) return <p key={i} style={{fontWeight:700,color:C.violet,fontSize:12,margin:'10px 0 3px'}}>{clean}</p>;
+    if(line.match(/^[-*]\s/)){const txt=clean.replace(/^[-*]\s*/,'');return(<div key={i} style={{display:'flex',gap:7,margin:'2px 0'}}><span style={{color:C.violet400,flexShrink:0,marginTop:1}}>•</span><span>{txt}</span></div>);}
+    if(line.trim()==='') return <div key={i} style={{height:5}}/>;
+    return <p key={i} style={{margin:'2px 0'}}>{clean}</p>;
+  });
+  const fmt=d=>d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+  return (
+    <div style={{background:C.white,borderRadius:14,border:`1px solid ${C.violet100}`,boxShadow:'0 4px 24px rgba(72,50,184,0.10)',overflow:'hidden'}}>
+      <div style={{background:`linear-gradient(135deg,${C.violet900},${C.violet})`,padding:'14px 18px'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{position:'relative'}}>
+              <div style={{width:36,height:36,borderRadius:10,background:'rgba(255,255,255,0.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><Bot size={18} color={C.white}/></div>
+              <div style={{position:'absolute',bottom:1,right:1,width:9,height:9,borderRadius:'50%',background:C.palm300,border:`2px solid ${C.violet}`}}/>
+            </div>
+            <div>
+              <p style={{margin:0,color:C.white,fontSize:13,fontWeight:700}}>Project Advisory Agent</p>
+              <p style={{margin:0,color:C.violet200,fontSize:10}}>Strategy · Risk · Delivery · {actions.length} actions tracked</p>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6}}>
+            <button onClick={onEmailOpen} style={{background:'rgba(205,49,81,0.85)',border:'none',borderRadius:7,padding:'6px 12px',color:C.white,fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}><Mail size={12}/> Email Team</button>
+            <button onClick={()=>{setMessages([{role:'assistant',content:"Chat cleared. Ready for your next question about the project, Opera integration, or hotel tech.",ts:new Date()}]);setShowSuggestions(true);}} style={{background:'rgba(255,255,255,0.1)',border:'none',borderRadius:7,padding:'6px 8px',cursor:'pointer',display:'flex'}}><RotateCcw size={13} color="rgba(255,255,255,0.7)"/></button>
+            <button onClick={()=>setExpanded(p=>!p)} style={{background:'rgba(255,255,255,0.1)',border:'none',borderRadius:7,padding:'6px 8px',cursor:'pointer',display:'flex'}}>{expanded?<Minimize2 size={13} color="rgba(255,255,255,0.7)"/>:<Maximize2 size={13} color="rgba(255,255,255,0.7)"/>}</button>
+          </div>
+        </div>
+      </div>
+      {expanded&&(
+        <>
+          <div style={{height:340,overflowY:'auto',padding:'16px 16px 8px',display:'flex',flexDirection:'column',gap:12,background:C.gray50}}>
+            {messages.map((msg,i)=>(
+              <div key={i} style={{display:'flex',gap:8,flexDirection:msg.role==='user'?'row-reverse':'row',alignItems:'flex-start'}}>
+                <div style={{width:28,height:28,borderRadius:msg.role==='user'?8:10,flexShrink:0,marginTop:2,background:msg.role==='user'?C.flamingo:`linear-gradient(135deg,${C.violet900},${C.violet})`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  {msg.role==='user'?<User size={13} color={C.white}/>:<Bot size={13} color={C.white}/>}
+                </div>
+                <div style={{maxWidth:'80%'}}>
+                  <div style={{padding:'10px 13px',borderRadius:msg.role==='user'?'12px 4px 12px 12px':'4px 12px 12px 12px',background:msg.role==='user'?C.flamingo:C.white,border:msg.role==='user'?'none':`1px solid ${C.violet100}`,fontSize:12,color:msg.role==='user'?C.white:C.gray700,lineHeight:1.65}}>
+                    {renderMsg(msg.content)}
+                  </div>
+                  <p style={{fontSize:9,color:C.gray300,margin:'3px 4px 0',textAlign:msg.role==='user'?'right':'left'}}>{fmt(msg.ts)}</p>
+                </div>
+              </div>
+            ))}
+            {loading&&(<div style={{display:'flex',gap:8,alignItems:'flex-start'}}><div style={{width:28,height:28,borderRadius:10,background:`linear-gradient(135deg,${C.violet900},${C.violet})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}><Bot size={13} color={C.white}/></div><div style={{padding:'10px 14px',borderRadius:'4px 12px 12px 12px',background:C.white,border:`1px solid ${C.violet100}`,display:'flex',gap:5,alignItems:'center'}}>{[0,1,2].map(j=><div key={j} style={{width:7,height:7,borderRadius:'50%',background:C.violet200,animation:`bounce 1.2s ease-in-out ${j*0.18}s infinite`}}/>)}</div></div>)}
+            <div ref={bottomRef}/>
+          </div>
+          {showSuggestions&&(
+            <div style={{padding:'10px 16px',borderTop:`1px solid ${C.violet50}`,background:C.white}}>
+              <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:8}}><Sparkles size={11} color={C.violet400}/><span style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6}}>Suggested Questions</span></div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {SUGGESTED_QUESTIONS.map((q,i)=>(
+                  <button key={i} onClick={()=>sendMessage(q.label)} disabled={loading}
+                    style={{background:C.violet50,border:`1px solid ${C.violet100}`,borderRadius:20,padding:'5px 11px',fontSize:11,color:C.violet700,cursor:loading?'not-allowed':'pointer',fontFamily:'inherit',fontWeight:500,display:'flex',alignItems:'center',gap:5,opacity:loading?0.5:1}}
+                    onMouseEnter={e=>{if(!loading){e.currentTarget.style.background=C.violet100;}}}
+                    onMouseLeave={e=>{e.currentTarget.style.background=C.violet50;}}>
+                    <span>{q.icon}</span>{q.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{padding:'10px 14px 14px',background:C.white,borderTop:`1px solid ${C.violet50}`}}>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <div style={{flex:1,background:C.gray50,border:`1.5px solid ${C.violet100}`,borderRadius:10,padding:'8px 12px',display:'flex',alignItems:'center',gap:8}} onFocusCapture={e=>e.currentTarget.style.borderColor=C.violet} onBlurCapture={e=>e.currentTarget.style.borderColor=C.violet100}>
+                <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKey} placeholder="Ask anything about this project…" disabled={loading} style={{flex:1,background:'none',border:'none',outline:'none',fontSize:12,color:C.dark,fontFamily:'inherit'}}/>
+                {!showSuggestions&&<button onClick={()=>setShowSuggestions(true)} style={{background:'none',border:'none',cursor:'pointer',padding:0,display:'flex'}}><Sparkles size={13} color={C.violet400}/></button>}
+              </div>
+              <button onClick={()=>sendMessage()} disabled={loading||!input.trim()} style={{width:38,height:38,borderRadius:10,flexShrink:0,background:loading||!input.trim()?C.violet200:`linear-gradient(135deg,${C.violet},${C.flamingo})`,border:'none',cursor:loading||!input.trim()?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                {loading?<Loader size={15} color={C.white} className="spin"/>:<Send size={15} color={C.white}/>}
+              </button>
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',marginTop:7}}>
+              <button onClick={onEmailOpen} style={{background:'none',border:'none',cursor:'pointer',fontSize:10,color:C.gray400,display:'flex',alignItems:'center',gap:4,fontFamily:'inherit',padding:0}}><Mail size={10} color={C.gray400}/> Need a human? Email the team <ArrowRight size={9} color={C.gray400}/></button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── ACTION TRACKER TAB ───────────────────────────────────────────────────────
+function ActionTrackerTab({actions}) {
+  const [search,setSearch]=useState('');
+  const [filterPriority,setFilterPriority]=useState('All');
+  const [filterStatus,setFilterStatus]=useState('All');
+  const [filterOrg,setFilterOrg]=useState('All');
+  const filtered=useMemo(()=>actions.filter(a=>{
+    const ms=!search||a.item.toLowerCase().includes(search.toLowerCase())||a.assigned.toLowerCase().includes(search.toLowerCase());
+    const mp=filterPriority==='All'||a.priority===filterPriority;
+    const ms2=filterStatus==='All'||(filterStatus==='Open'?a.status!=='Done':a.status===filterStatus);
+    const mo=filterOrg==='All'||a.org===filterOrg;
+    return ms&&mp&&ms2&&mo;
+  }),[actions,search,filterPriority,filterStatus,filterOrg]);
+  const done=actions.filter(a=>a.status==='Done').length;
+  const open=actions.filter(a=>a.status!=='Done').length;
+  const critical=actions.filter(a=>a.priority==='Critical'&&a.status!=='Done').length;
+  const overdue=actions.filter(a=>a.due&&a.due!=='—'&&new Date(a.due)<new Date('2026-03-09')&&a.status!=='Done').length;
+  const sel=(val,set,arr)=><select value={val} onChange={e=>set(e.target.value)} style={{padding:'6px 10px',border:`1.5px solid ${C.violet100}`,borderRadius:8,fontSize:11,color:C.gray700,background:C.white,outline:'none',cursor:'pointer',fontFamily:'inherit'}}>{arr.map(o=><option key={o}>{o}</option>)}</select>;
+  
+  // Task status donut data
+  const taskStatusData = [
+    {name:'Completed',value:done,color:C.palm},
+    {name:'In Progress',value:actions.filter(a=>['75%','50%','25%','10%'].includes(a.status)).length,color:C.violet},
+    {name:'Not Started / Pending',value:actions.filter(a=>['Not Started','Pending'].includes(a.status)).length,color:C.violet100},
+  ];
+  const circumference = 2*Math.PI*52;
+  let offset = 0;
+  const segments = taskStatusData.map(s=>{
+    const pct = actions.length ? s.value/actions.length : 0;
+    const dash = circumference*pct;
+    const seg = {pct,dash,offset,color:s.color,name:s.name,value:s.value};
+    offset += dash;
+    return seg;
+  });
+
+  return (
+    <div>
+      {/* Donut + KPIs row */}
+      <div style={{display:'grid',gridTemplateColumns:'200px 1fr',gap:16,marginBottom:16,background:C.white,borderRadius:12,border:`1px solid ${C.violet100}`,padding:'16px 20px',alignItems:'center'}}>
+        {/* SVG Donut */}
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+          <svg width={130} height={130} viewBox="0 0 130 130">
+            <circle cx={65} cy={65} r={52} fill="none" stroke={C.violet50} strokeWidth={14}/>
+            {segments.map((s,i)=>(
+              <circle key={i} cx={65} cy={65} r={52} fill="none" stroke={s.color} strokeWidth={14}
+                strokeDasharray={`${s.dash} ${circumference-s.dash}`}
+                strokeDashoffset={-s.offset}
+                transform="rotate(-90 65 65)" strokeLinecap="round"/>
+            ))}
+            <text x={65} y={60} textAnchor="middle" fontSize={22} fontWeight={800} fill={C.dark}>{actions.length}</text>
+            <text x={65} y={76} textAnchor="middle" fontSize={10} fill={C.gray500} fontWeight={600}>actions</text>
+          </svg>
+          <div style={{display:'flex',flexDirection:'column',gap:5,width:'100%'}}>
+            {taskStatusData.map((s,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
+                <div style={{width:8,height:8,borderRadius:2,background:s.color,flexShrink:0}}/>
+                <span style={{flex:1,color:C.gray600,fontSize:10}}>{s.name}</span>
+                <span style={{fontWeight:700,color:C.dark}}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* KPI cards */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+          {[{label:'Total Actions',val:actions.length,color:C.violet,icon:'📋'},{label:'Completed',val:done,color:C.palm,icon:'✅'},{label:'Open Items',val:open,color:C.amber,icon:'🔄'},{label:'Critical Open',val:critical,color:C.flamingo,icon:'🚨'}].map((k,i)=>(
+            <div key={i} style={{background:C.gray50,borderRadius:10,border:`1px solid ${C.violet100}`,padding:'12px 14px',position:'relative',overflow:'hidden'}}>
+              <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:k.color}}/>
+              <div style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.8,marginBottom:4}}>{k.icon} {k.label}</div>
+              <div style={{fontSize:24,fontWeight:800,color:C.dark}}>{k.val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{background:C.white,borderRadius:10,border:`1px solid ${C.violet100}`,padding:'12px 16px',marginBottom:14,display:'flex',flexWrap:'wrap',gap:10,alignItems:'center'}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,flex:1,minWidth:180}}><Search size={13} color={C.gray500}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by item or owner…" style={{border:'none',outline:'none',fontSize:12,color:C.dark,background:'none',width:'100%',fontFamily:'inherit'}}/></div>
+        <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+          <span style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.6}}>Filter:</span>
+          {sel(filterPriority,setFilterPriority,['All','Critical','High','Medium','Low'])}
+          {sel(filterStatus,setFilterStatus,['All','Open','Done','75%','50%','25%','Not Started','Pending'])}
+          {sel(filterOrg,setFilterOrg,['All','DCT','H2O','ICP','—'])}
+          {(search||filterPriority!=='All'||filterStatus!=='All'||filterOrg!=='All')&&<button onClick={()=>{setSearch('');setFilterPriority('All');setFilterStatus('All');setFilterOrg('All');}} style={{background:C.flamingo50,border:`1px solid ${C.flamingo100}`,borderRadius:6,padding:'5px 10px',color:C.flamingo,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Clear</button>}
+        </div>
+        <span style={{fontSize:11,color:C.gray500,marginLeft:'auto'}}>{filtered.length} of {actions.length}</span>
+      </div>
+      <div style={{background:C.white,borderRadius:10,border:`1px solid ${C.violet100}`,overflow:'hidden'}}>
+        <div style={{display:'grid',gridTemplateColumns:'36px 2.8fr 0.7fr 0.6fr 0.9fr 0.7fr 0.7fr',gap:8,padding:'10px 14px',borderBottom:`2px solid ${C.violet}`,background:C.violet50}}>
+          {['#','Action Item','Priority','Org','Owner','Due','Status'].map(h=><span key={h} style={{fontSize:10,fontWeight:700,color:C.violet700,textTransform:'uppercase',letterSpacing:0.6}}>{h}</span>)}
+        </div>
+        {filtered.length===0&&<div style={{padding:'28px',textAlign:'center',color:C.gray500,fontSize:12}}>No actions match your filters.</div>}
+        {filtered.map((a,i)=>{
+          const sc=statusColor(a.status),pc=priorityColor(a.priority);
+          const isOverdue=a.due&&a.due!=='—'&&new Date(a.due)<new Date('2026-03-04')&&a.status!=='Done';
+          return(
+            <div key={a.id} style={{display:'grid',gridTemplateColumns:'36px 2.8fr 0.7fr 0.6fr 0.9fr 0.7fr 0.7fr',gap:8,padding:'11px 14px',borderBottom:`1px solid ${C.violet50}`,background:i%2===0?C.white:C.gray50,alignItems:'center'}}>
+              <span style={{fontSize:11,fontWeight:700,color:C.gray400}}>#{a.id}</span>
+              <span style={{fontSize:12,color:C.dark,lineHeight:1.4,paddingRight:8}}>{a.item}</span>
+              <span style={{padding:'2px 7px',borderRadius:20,fontSize:10,fontWeight:700,background:pc.bg,color:pc.fg,textAlign:'center',whiteSpace:'nowrap'}}>{a.priority}</span>
+              <span style={{fontSize:11,color:C.gray700,fontWeight:600}}>{a.org}</span>
+              <span style={{fontSize:11,color:C.gray700}}>{a.assigned}</span>
+              <span style={{fontSize:10,color:isOverdue?C.flamingo:C.gray500,fontWeight:isOverdue?700:400}}>{a.due}{isOverdue&&' ⚠'}</span>
+              <span style={{padding:'3px 8px',borderRadius:20,fontSize:10,fontWeight:700,background:sc.bg,color:sc.fg,textAlign:'center',whiteSpace:'nowrap'}}>{a.status}</span>
+            </div>
+          );
+        })}
+      </div>
+      {overdue>0&&<div style={{marginTop:12,background:C.flamingo50,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:8,border:`1px solid ${C.flamingo100}`}}><AlertTriangle size={14} color={C.flamingo} style={{flexShrink:0}}/><span style={{fontSize:12,color:C.flamingo700}}><strong>{overdue} action{overdue>1?'s':''}</strong> past their due date and still open. Escalation recommended.</span></div>}
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function Dashboard() {
+  const [phases, setPhases] = useState(DEFAULT_PHASES);
+  const [actions, setActions] = useState(DEFAULT_ACTIONS);
+  const [changelog, setChangelog] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState('Mar 9, 2026');
+  const [loading, setLoading] = useState(true);
+
+  const [tab, setTab] = useState('dashboard');
+  const [expanded, setExpanded] = useState({});
+  const [showPM, setShowPM] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+
+  // Load persisted data on mount
+  useEffect(() => {
+    loadFromStorage().then(saved => {
+      if (saved) {
+        if (saved.phases) setPhases(saved.phases);
+        if (saved.actions) setActions(saved.actions);
+        if (saved.changelog) setChangelog(saved.changelog);
+        if (saved.lastUpdated) setLastUpdated(saved.lastUpdated);
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  const persistAll = async (newPhases, newActions, newChangelog, ts) => {
+    await saveToStorage({ phases: newPhases, actions: newActions, changelog: newChangelog, lastUpdated: ts });
+  };
+
+  const handleSavePhases = async (newPhases) => {
+    const ts = new Date().toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const changes = newPhases.map((p,i) => {
+      const old = phases[i];
+      if (old && old.progress !== p.progress) return `${p.name}: ${old.progress}% → ${p.progress}%`;
+      return null;
+    }).filter(Boolean);
+    const entry = {
+      type: 'phases',
+      timestamp: ts,
+      summary: `Phase progress updated by PM`,
+      detail: changes.length ? changes.join(' · ') : 'No changes detected',
+    };
+    const newLog = [...changelog, entry];
+    setPhases(newPhases);
+    setChangelog(newLog);
+    setLastUpdated(ts);
+    await persistAll(newPhases, actions, newLog, ts);
+  };
+
+  const handleSaveActions = async (newActions) => {
+    const ts = new Date().toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const done = newActions.filter(a => a.status === 'Done').length;
+    const open = newActions.filter(a => a.status !== 'Done').length;
+    const entry = {
+      type: 'actions',
+      timestamp: ts,
+      summary: `Action Tracker refreshed from Excel paste`,
+      detail: `${newActions.length} total items · ${done} done · ${open} open`,
+    };
+    const newLog = [...changelog, entry];
+    setActions(newActions);
+    setChangelog(newLog);
+    setLastUpdated(ts);
+    await persistAll(phases, newActions, newLog, ts);
+  };
+
+  const toggle = (id) => setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  const overall = computeOverall(phases);
+  const baseline = computeBaselineOverall(phases);
+
+  const allTasks = phases.flatMap(p => p.tasks);
+  const taskStatusData = useMemo(() => [
+    {name:'Completed',value:allTasks.filter(t=>t.progress===100).length},
+    {name:'In Progress',value:allTasks.filter(t=>t.progress>0&&t.progress<100).length},
+    {name:'Not Started',value:allTasks.filter(t=>t.progress===0).length},
+  ],[allTasks]);
+
+  const gantt = useMemo(() => {
+    const ps = new Date('2026-01-16');
+    return phases.map(p => {
+      const s=new Date(p.start),e=new Date(p.end);
+      const sd=Math.max(0,Math.floor((s-ps)/864e5));
+      const dur=Math.floor((e-s)/864e5);
+      const done=Math.floor(dur*p.progress/100);
+      return {name:p.name.length>26?p.name.slice(0,26)+'…':p.name,start:sd,done,rem:dur-done,pct:p.progress};
+    });
+  },[phases]);
+
+  const p1Detail = useMemo(() => {
+    const p1 = phases.find(p => p.id === 'phase1');
+    if (!p1) return [];
+    return [...p1.tasks].sort((a,b) => b.progress - a.progress);
+  }, [phases]);
+
+  const dashboardRef = useRef(null);
+
+  const handleExportPDF = async () => {
+    try {
+      // Dynamically load libraries
+      if (!window.html2canvas) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+      }
+      if (!window.jspdf) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });
+      }
+      const prevTab = tab;
+      setTab('dashboard');
+      await new Promise(r => setTimeout(r, 400));
+
+      const el = dashboardRef.current;
+      if (!el) return;
+
+      const canvas = await window.html2canvas(el, {
+        scale: 1.5,
+        useCORS: true,
+        backgroundColor: '#F5F4F8',
+        logging: false,
+        ignoreElements: el => el.classList?.contains('no-print')
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const ratio = canvas.width / canvas.height;
+      const totalPdfH = pdfW / ratio;
+      let yOffset = 0;
+      let pageH = pdfH;
+      while (yOffset < totalPdfH) {
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, -yOffset, pdfW, totalPdfH);
+        yOffset += pageH;
+      }
+      const date = new Date().toISOString().slice(0,10);
+      pdf.save(`SmartCheckIn_Dashboard_${date}.pdf`);
+      setTab(prevTab);
+    } catch(e) {
+      alert('PDF export failed: ' + e.message);
+    }
+  };
+
+  const card={background:C.white,borderRadius:12,border:`1px solid ${C.violet100}`,boxShadow:'0 1px 4px rgba(72,50,184,0.04)'};
+  const h2s={fontSize:14,fontWeight:700,color:C.dark,letterSpacing:-0.2,margin:'0 0 16px'};
+
+  const navTabs=[
+    {id:'dashboard',label:'Dashboard',icon:<LayoutDashboard size={14}/>},
+    {id:'actions',label:`Actions (${actions.filter(a=>a.status!=='Done').length} open)`,icon:<ListChecks size={14}/>},
+    {id:'advisor',label:'Project Advisory Agent',icon:<Bot size={14}/>},
+  ];
+
+  if (loading) return (
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:C.gray50}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12}}>
+        <Loader size={28} color={C.violet} className="spin"/>
+        <p style={{fontSize:13,color:C.gray500,fontFamily:"'Segoe UI', sans-serif"}}>Loading project data…</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{background:C.gray50,minHeight:'100vh',fontFamily:"'Segoe UI', -apple-system, sans-serif"}}>
+      {showEmail && <EmailModal onClose={()=>setShowEmail(false)}/>}
+      {showPM && <PMModal phases={phases} actions={actions} changelog={changelog} onSavePhases={handleSavePhases} onSaveActions={handleSaveActions} onClose={()=>setShowPM(false)}/>}
+
+      {/* HEADER */}
+      <div style={{background:`linear-gradient(135deg,${C.dark} 0%,${C.violet900} 50%,${C.violet} 100%)`}}>
+        <div style={{height:3,background:`linear-gradient(90deg,${C.flamingo},${C.violet},${C.palm})`}}/>
+        <div style={{padding:'24px 32px 0',maxWidth:1280,margin:'0 auto'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+              <rect x="2" y="2" width="18" height="18" rx="2" fill="white" opacity="0.9"/>
+              <rect x="24" y="2" width="18" height="18" rx="2" fill="white" opacity="0.7"/>
+              <rect x="2" y="24" width="18" height="18" rx="2" fill="white" opacity="0.7"/>
+              <rect x="24" y="24" width="18" height="18" rx="2" fill="white" opacity="0.5"/>
+            </svg>
+            <div style={{display:'flex',flexDirection:'column',borderLeft:'1px solid rgba(255,255,255,0.25)',paddingLeft:10}}>
+              <span style={{color:C.white,fontSize:11,fontWeight:700,fontFamily:'serif',letterSpacing:0.5,lineHeight:1.2}}>دائرة الثقافة والسياحة</span>
+              <span style={{color:'rgba(255,255,255,0.7)',fontSize:8.5,fontWeight:600,letterSpacing:1.2,textTransform:'uppercase',lineHeight:1.3}}>Department of Culture</span>
+              <span style={{color:'rgba(255,255,255,0.7)',fontSize:8.5,fontWeight:600,letterSpacing:1.2,textTransform:'uppercase',lineHeight:1.1}}>and Tourism — Abu Dhabi</span>
+            </div>
+            <div style={{width:1,height:44,background:'rgba(255,255,255,0.15)',margin:'0 6px'}}/>
+            <div>
+              <h1 style={{color:C.white,fontSize:26,fontWeight:700,margin:0,letterSpacing:-0.5}}>Smart Check-In</h1>
+              <p style={{color:C.violet200,fontSize:13,margin:'3px 0 0',fontWeight:500}}>Face Recognition System — Master Project Plan</p>
+            </div>
+            <div className="no-print" style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:8}}>
+              <button onClick={handleExportPDF}
+                style={{background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.25)',borderRadius:8,padding:'8px 14px',color:C.white,fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                <FileDown size={13}/> Export PDF
+              </button>
+              <button onClick={()=>setShowEmail(true)}
+                style={{background:'rgba(205,49,81,0.8)',border:'1px solid rgba(205,49,81,0.5)',borderRadius:8,padding:'8px 14px',color:C.white,fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                <Mail size={13}/> Email Team
+              </button>
+              {/* Hidden PM button — subtle lock icon */}
+              <button onClick={()=>setShowPM(true)} title="PM Controls"
+                style={{background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:8,padding:'8px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,transition:'all 0.2s'}}
+                onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.15)';}}
+                onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.07)';}}>
+                <Lock size={13} color="rgba(255,255,255,0.45)"/>
+              </button>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:20,marginTop:14,fontSize:11,color:'rgba(255,255,255,0.5)'}}>
+            <span>Duration: <strong style={{color:'rgba(255,255,255,0.8)'}}>215 days</strong></span>
+            <span>Start: <strong style={{color:'rgba(255,255,255,0.8)'}}>Jan 16, 2026</strong></span>
+            <span>End: <strong style={{color:'rgba(255,255,255,0.8)'}}>Nov 30, 2026</strong></span>
+            <span>Updated: <strong style={{color:C.flamingo300}}>{lastUpdated}</strong></span>
+            {changelog.length>0&&<span style={{color:C.palm300}}>· {changelog.length} update{changelog.length>1?'s':''} logged</span>}
+          </div>
+          <div className="no-print" style={{display:'flex',gap:2,marginTop:16}}>
+            {navTabs.map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)}
+                style={{padding:'10px 18px',border:'none',borderRadius:'8px 8px 0 0',cursor:'pointer',fontFamily:'inherit',fontWeight:700,fontSize:12,display:'flex',alignItems:'center',gap:6,transition:'all 0.15s',background:tab===t.id?C.gray50:'rgba(255,255,255,0.08)',color:tab===t.id?C.violet:'rgba(255,255,255,0.65)'}}>
+                {t.icon}{t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:'24px 32px',maxWidth:1280,margin:'0 auto'}}>
+
+        {/* ── DASHBOARD TAB ── */}
+        {tab==='dashboard'&&(
+          <>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16,marginBottom:20}}>
+              {[
+                {label:'Overall Progress',val:`${overall}%`,sub:`Baseline: ${baseline}% · ${overall>=baseline?`▲ +${overall-baseline}%`:`▼ ${overall-baseline}%`} vs plan`,icon:<Target size={18}/>,accent:overall>=baseline?C.palm:C.flamingo,bar:overall,baseline},
+                {label:'Active Phases',val:phases.filter(p=>p.status==='In Progress').length,sub:`of ${phases.length} total`,icon:<Clock size={18}/>,accent:C.flamingo},
+                {label:'Phases Done',val:`${phases.filter(p=>p.status==='Completed').length}/${phases.length}`,sub:'completed',icon:<CheckCircle size={18}/>,accent:C.palm},
+                {label:'Pilot Go-Live',val:'Apr 30',sub:'57 days remaining',icon:<Shield size={18}/>,accent:C.violet},
+              ].map((k,i)=>(
+                <div key={i} style={{...card,padding:'18px 20px',position:'relative',overflow:'hidden'}}>
+                  <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:k.accent}}/>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+                    <span style={{fontSize:10,fontWeight:700,color:C.gray500,textTransform:'uppercase',letterSpacing:0.8}}>{k.label}</span>
+                    <span style={{color:k.accent,opacity:0.7}}>{k.icon}</span>
+                  </div>
+                  <div style={{fontSize:28,fontWeight:800,color:C.dark}}>{k.val}</div>
+                  <div style={{fontSize:11,color:C.gray500,marginTop:2}}>{k.sub}</div>
+                  {k.bar!==undefined&&<div style={{marginTop:10,position:'relative',height:7,background:C.violet100,borderRadius:4}}>
+                    {k.baseline!==undefined&&k.baseline>0&&<div style={{position:'absolute',top:0,left:0,height:'100%',borderRadius:4,width:`${k.baseline}%`,background:'rgba(205,49,81,0.2)',borderTop:`2px dashed ${C.flamingo300}`}}/>}
+                    <div style={{position:'absolute',top:0,left:0,height:'100%',borderRadius:4,background:`linear-gradient(90deg,${k.accent},${C.violet})`,width:`${k.bar}%`,transition:'width 0.6s ease'}}/>
+                  </div>}
+                </div>
+              ))}
+            </div>
+
+            <div style={{...card,padding:'20px',marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+                <h2 style={{...h2s,margin:0}}>Project Phases</h2>
+                <div style={{display:'flex',gap:12,fontSize:10,color:C.gray500}}>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:10,borderRadius:2,background:C.violet,display:'inline-block'}}/> Actual</span>
+                  <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:10,height:4,borderRadius:2,background:C.flamingo300,display:'inline-block',borderTop:`2px dashed ${C.flamingo}`}}/> Baseline</span>
+                  <span style={{color:C.palm700,fontWeight:700}}>▲ Ahead</span>
+                  <span style={{color:C.flamingo,fontWeight:700}}>▼ Behind</span>
+                </div>
+              </div>
+              <div style={{fontSize:12}}>
+                <div style={{display:'grid',gridTemplateColumns:'2.2fr 0.8fr 0.8fr 0.7fr 1.4fr',gap:8,padding:'8px 10px',borderBottom:`2px solid ${C.violet}`}}>
+                  {['Phase','Start','End','Status','Actual vs Baseline'].map(h=><span key={h} style={{fontSize:10,fontWeight:700,color:C.violet700,textTransform:'uppercase',letterSpacing:0.6}}>{h}</span>)}
+                </div>
+                {phases.map((p,i)=>{
+                  const delta = (p.progress||0) - (p.baseline||p.progress||0);
+                  return (
+                  <React.Fragment key={p.id}>
+                    <div onClick={()=>toggle(p.id)} style={{display:'grid',gridTemplateColumns:'2.2fr 0.8fr 0.8fr 0.7fr 1.4fr',gap:8,padding:'12px 10px',borderBottom:`1px solid ${C.violet50}`,background:i%2===0?C.white:C.gray50,cursor:'pointer',alignItems:'center'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>{expanded[p.id]?<ChevronDown size={14} color={C.violet}/>:<ChevronRight size={14} color={C.violet400}/>}<span style={{fontWeight:700,color:C.dark}}>{p.name}</span></div>
+                      <span style={{color:C.gray700,fontSize:11}}>{p.start.slice(5)}</span>
+                      <span style={{color:C.gray700,fontSize:11}}>{p.end.slice(5)}</span>
+                      <span style={{padding:'2px 8px',borderRadius:20,fontSize:10,fontWeight:700,background:STATUS_BG[p.status],color:STATUS_FG[p.status],textAlign:'center',whiteSpace:'nowrap'}}>{p.status}</span>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <div style={{flex:1,position:'relative',height:8}}>
+                          {/* Baseline track */}
+                          <div style={{position:'absolute',top:0,left:0,right:0,height:8,background:C.violet50,borderRadius:4}}/>
+                          {/* Baseline bar */}
+                          {(p.baseline||0)>0&&<div style={{position:'absolute',top:0,left:0,height:8,borderRadius:4,width:`${p.baseline||0}%`,background:'rgba(205,49,81,0.18)',borderTop:`2px dashed ${C.flamingo300}`}}/>}
+                          {/* Actual bar */}
+                          <div style={{position:'absolute',top:0,left:0,height:8,borderRadius:4,width:`${p.progress}%`,background:p.progress===100?C.palm:`linear-gradient(90deg,${C.violet},${C.violet400})`,transition:'width 0.4s'}}/>
+                        </div>
+                        <span style={{fontSize:11,fontWeight:800,color:p.progress===100?C.palm700:C.violet,minWidth:28,textAlign:'right'}}>{p.progress}%</span>
+                        {delta!==0&&<span style={{fontSize:10,fontWeight:700,color:delta>0?C.palm700:C.flamingo,minWidth:28}}>{delta>0?`▲+${delta}`:`▼${delta}`}%</span>}
+                      </div>
+                    </div>
+                    {expanded[p.id]&&(
+                      <div style={{background:C.violet50,borderBottom:`1px solid ${C.violet100}`}}>
+                        {p.tasks.map((t,ti)=>{
+                          const td = (t.progress||0)-(t.baseline||0);
+                          return(
+                          <div key={ti} style={{display:'grid',gridTemplateColumns:'2.2fr 0.8fr 0.8fr 0.7fr 1.4fr',gap:8,padding:'8px 10px 8px 36px',borderBottom:`1px solid ${C.violet100}`,alignItems:'center'}}>
+                            <span style={{fontSize:11,color:C.gray700}}>{t.name}</span><span/><span/>
+                            <span style={{fontSize:10,color:t.progress===100?C.palm700:t.progress>0?C.violet:C.gray500,fontWeight:600}}>{t.progress===100?'✓ Done':t.progress>0?'Active':'Pending'}</span>
+                            <div style={{display:'flex',alignItems:'center',gap:5}}>
+                              <div style={{flex:1,position:'relative',height:6}}>
+                                <div style={{position:'absolute',inset:0,background:C.violet100,borderRadius:3}}/>
+                                {(t.baseline||0)>0&&<div style={{position:'absolute',top:0,left:0,height:'100%',borderRadius:3,width:`${t.baseline||0}%`,background:'rgba(205,49,81,0.15)',borderTop:`1.5px dashed ${C.flamingo300}`}}/>}
+                                <div style={{position:'absolute',top:0,left:0,height:'100%',borderRadius:3,width:`${t.progress}%`,background:t.progress===100?C.palm:C.violet400}}/>
+                              </div>
+                              <span style={{fontSize:10,fontWeight:700,color:t.progress===100?C.palm700:C.violet,minWidth:26,textAlign:'right'}}>{t.progress}%</span>
+                              {td!==0&&<span style={{fontSize:9,fontWeight:700,color:td>0?C.palm700:C.flamingo,minWidth:22}}>{td>0?`+${td}`:`${td}`}</span>}
+                            </div>
+                          </div>
+                        )})}
+                      </div>
+                    )}
+                  </React.Fragment>
+                )})}
+              </div>
+            </div>
+
+
+
+            <div style={{...card,padding:'20px',marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+                <h2 style={{...h2s,margin:0,display:'flex',alignItems:'center',gap:8}}><Clock size={15} color={C.flamingo}/> Pilot Phase — Key Milestones</h2>
+                <span style={{fontSize:11,color:C.gray500}}>Target: Apr 30, 2026</span>
+              </div>
+              {/* Timeline connector */}
+              <div style={{position:'relative',display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12}}>
+                <div style={{position:'absolute',top:18,left:'10%',right:'10%',height:2,background:`linear-gradient(90deg,${C.violet100},${C.violet200})`,zIndex:0}}/>
+                {DEFAULT_MILESTONES.map((m,i)=>{
+                  const riskColor = m.risk==='critical'?C.flamingo:m.risk==='high'?C.amber:m.risk==='medium'?C.violet:C.palm;
+                  const riskBg = m.risk==='critical'?C.flamingo50:m.risk==='high'?C.amber50:m.risk==='medium'?C.violet50:C.palm50;
+                  return (
+                    <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center',position:'relative',zIndex:1}}>
+                      {/* Node */}
+                      <div style={{width:38,height:38,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:m.done?C.violet:C.white,border:`3px solid ${m.done?C.violet:riskColor}`,marginBottom:10,fontSize:16,boxShadow:`0 0 0 4px ${riskBg}`,transition:'all 0.2s'}}>
+                        {m.done ? <CheckCircle size={16} color={C.white}/> : <span>{m.icon}</span>}
+                      </div>
+                      {/* Card */}
+                      <div style={{background:C.white,border:`1px solid ${m.done?C.violet100:riskColor+'40'}`,borderRadius:10,padding:'10px 10px',width:'100%',borderTop:`3px solid ${m.done?C.palm:riskColor}`}}>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                          <span style={{fontSize:10,fontWeight:800,color:m.done?C.palm700:C.dark,lineHeight:1.3}}>{m.name}</span>
+                        </div>
+                        <div style={{fontSize:10,color:C.gray500,marginBottom:6,fontWeight:600}}>{m.dateShort}</div>
+                        <p style={{fontSize:10,color:C.gray700,margin:'0 0 8px',lineHeight:1.5}}>{m.desc}</p>
+                        {/* Progress bar */}
+                        <div style={{height:4,background:C.gray100,borderRadius:2,marginBottom:6,overflow:'hidden'}}>
+                          <div style={{height:'100%',width:`${m.pct}%`,background:m.done?C.palm:m.pct>60?C.violet:m.pct>30?C.amber:riskColor,borderRadius:2,transition:'width 0.4s'}}/>
+                        </div>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                          <span style={{fontSize:9,color:C.gray500}}>{m.owner}</span>
+                          <div style={{display:'flex',alignItems:'center',gap:4}}>
+                            <span style={{padding:'1px 6px',borderRadius:8,fontSize:9,fontWeight:700,background:riskBg,color:riskColor,textTransform:'capitalize'}}>{m.risk}</span>
+                            <span style={{fontSize:10,fontWeight:800,color:m.done?C.palm700:m.pct>0?C.violet:C.gray400}}>{m.done?'✓':m.pct+'%'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </>
+        )}
+
+        {tab==='actions'&&<ActionTrackerTab actions={actions}/>}
+        {tab==='advisor'&&<CTOAdvisor phases={phases} actions={actions} onEmailOpen={()=>setShowEmail(true)}/>}
+
+        <div style={{textAlign:'center',padding:'16px 0 8px'}}>
+          <div style={{height:2,background:`linear-gradient(90deg,transparent,${C.flamingo300},${C.violet400},${C.palm300},transparent)`,marginBottom:12}}/>
+          <p style={{color:C.gray500,fontSize:10,fontWeight:500,letterSpacing:0.5}}>Smart Check-In Project Dashboard &nbsp;•&nbsp; DCT Abu Dhabi &nbsp;•&nbsp; Last updated: {lastUpdated}</p>
+        </div>
+      </div>
+
+      <style>{`
+        .spin{animation:spin 1s linear infinite;}
+        @media print {
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          @page { margin: 12mm 10mm; size: A4 landscape; }
+          .no-print { display: none !important; }
+          button, .no-print { display: none !important; }
+          * { box-shadow: none !important; }
+        }
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+      `}</style>
+    </div>
+  );
+}
+
+
+function App() { return <Dashboard />; }
+const root = ReactDOM.createRoot(document.getElementById('app'));
+root.render(<App />);
+</script>
+</body>
+</html>
