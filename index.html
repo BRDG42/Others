@@ -15,7 +15,7 @@
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Outfit',sans-serif;background:#F5F4F8;min-height:100vh;}
     #lock-screen{position:fixed;inset:0;background:linear-gradient(135deg,#2A1D6E 0%,#4832B8 50%,#3826A0 100%);display:flex;align-items:center;justify-content:center;z-index:9999;}
-    #app{display:none;}
+    #app{}
     .lock-card{background:rgba(255,255,255,0.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:40px 44px;width:360px;text-align:center;}
     .lock-logo{width:56px;height:56px;border-radius:14px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:26px;}
     .lock-title{color:#fff;font-size:18px;font-weight:800;margin-bottom:4px;letter-spacing:-0.3px;}
@@ -63,7 +63,6 @@
     const h = await sha256(val);
     if (h === HASH) {
       document.getElementById('lock-screen').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
       sessionStorage.setItem('dct_auth', '1');
     } else {
       const el = document.getElementById('pwd-input');
@@ -78,7 +77,6 @@
   document.addEventListener('DOMContentLoaded', () => {
     if (sessionStorage.getItem('dct_auth') === '1') {
       document.getElementById('lock-screen').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
     }
     document.getElementById('pwd-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') checkPassword();
@@ -287,15 +285,15 @@ const STORAGE_KEY = 'dct_smartcheckin_data';
 
 const loadFromStorage = async () => {
   try {
-    const result = await window.storage.get(STORAGE_KEY);
-    if (result && result.value) return JSON.parse(result.value);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
   } catch(e) {}
   return null;
 };
 
 const saveToStorage = async (data) => {
   try {
-    await window.storage.set(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     return true;
   } catch(e) { return false; }
 };
