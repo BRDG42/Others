@@ -1,0 +1,19 @@
+# Occupancy, zoning and approval-support rules.
+
+# Maximum occupancy is derived from bedrooms in the prototype.
+# TODO(LRCD): confirm the authoritative occupancy formula.
+occupancy:
+  persons_per_bedroom: 2
+  extra_persons_allowance: 2
+
+# Zoning / restricted-zone checks performed during approval support.
+# Listed as known classes; the authoritative zoning dataset is external (TAMM/GIS).
+zoning:
+  prohibited_zones:
+    - industrial
+    - restricted_security
+  grant_property_requires_noc: true   # grant (government-granted) property needs an NOC
+
+# Which authority signs off is UNRESOLVED (see unresolved.yaml).
+approval_authority:
+  unresolved: approval_authority_routing

@@ -1,0 +1,56 @@
+# Inspection routing and checklists.
+
+# Inspection path per unit type.
+#   inspect_before_issue -> standard path; license issues only after a passed inspection.
+#   issue_before_inspect -> apartment path; license issues as "not yet permitted to
+#                           operate" and the inspection follows. The exact timing
+#                           obligation is UNRESOLVED (see unresolved.yaml ->
+#                           apartment_inspection_sequencing).
+inspection_path:
+  apartment: issue_before_inspect
+  villa: inspect_before_issue
+  townhouse: inspect_before_issue
+  farm: inspect_before_issue
+  caravan: inspect_before_issue
+  floating: inspect_before_issue
+
+# When a unit type uses issue_before_inspect, its booking-deadline obligation is
+# governed by the unresolved sequencing rule.
+issue_before_inspect_sequencing:
+  unresolved: apartment_inspection_sequencing
+
+# Inspection checklists per unit type (prototype placeholders).
+# TODO(LRCD): confirm the authoritative inspection checklists.
+checklists:
+  apartment:
+    - smoke_detectors_operational
+    - fire_extinguisher_present
+    - emergency_exit_signage
+    - hassantuk_panel_connected
+    - cleanliness_and_amenities
+  villa:
+    - smoke_detectors_operational
+    - fire_extinguisher_present
+    - pool_safety_if_present
+    - boundary_and_access
+    - cleanliness_and_amenities
+  townhouse:
+    - smoke_detectors_operational
+    - fire_extinguisher_present
+    - emergency_exit_signage
+    - cleanliness_and_amenities
+  farm:
+    - smoke_detectors_operational
+    - fire_extinguisher_present
+    - livestock_separation
+    - water_and_sanitation
+    - cleanliness_and_amenities
+  caravan:
+    - gas_safety
+    - fire_extinguisher_present
+    - structural_anchoring
+  floating:
+    - life_jackets_present
+    - flotation_integrity
+    - fire_extinguisher_present
+    - maritime_signage

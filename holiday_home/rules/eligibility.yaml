@@ -1,0 +1,24 @@
+# Eligibility pre-screen rules.
+#
+# Numeric thresholds and enumerations live here in config; the evaluation logic
+# lives in foundation/rule_engine.py. Where a value is genuinely unresolved it is
+# NOT placed here — it is referenced from rules/unresolved.yaml so the engine
+# parks the dependent path instead of guessing.
+
+# Applicant must be a natural person or an authorised legal entity.
+allowed_applicant_kinds:
+  - natural_person
+  - legal_entity
+
+# The minimum-age check is intentionally NOT given a value here.
+# It resolves against unresolved.yaml -> min_applicant_age.
+min_applicant_age:
+  unresolved: min_applicant_age
+
+# The per-person license cap is unresolved (see unresolved.yaml).
+max_licenses_per_person:
+  unresolved: max_licenses_per_person
+
+# Unit must be located in an emirate the program covers.
+covered_emirates:
+  - abu_dhabi

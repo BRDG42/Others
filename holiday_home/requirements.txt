@@ -1,0 +1,6 @@
+# Runtime dependency for the rules config layer.
+PyYAML>=6.0
+
+# Tests run on the standard-library unittest module (no extra dependency).
+# Optional: install pytest to run them with `pytest` instead of `python -m unittest`.
+# pytest>=7.0

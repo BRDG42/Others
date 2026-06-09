@@ -1,0 +1,46 @@
+# Central registry of UNRESOLVED regulatory rules.
+#
+# These are the open items the LRCD team flagged. They MUST NOT be hardcoded
+# with a guessed value anywhere in the codebase. The rule engine reads this
+# registry; whenever an application's decision path depends on one of these
+# keys, the engine PARKS that path and reports the exact TODO(LRCD) id below.
+#
+# Each entry:
+#   todo:        human-readable TODO(LRCD) statement (printed in the audit trail)
+#   gating:      true  -> a parked path HALTS the application (eligibility-class)
+#                false -> a parked path is advisory; pipeline continues with a flag
+#   <hints>:     the ONLY stated/cited figures we have, used to decide whether a
+#                given application's path actually depends on the unresolved part.
+
+min_applicant_age:
+  todo: "TODO(LRCD): Minimum applicant age is unresolved — 21 in the 2020 decision vs. unstated in the Guide. Confirm the binding floor."
+  gating: true
+  # The only explicitly stated value. Applicants comfortably above this are not
+  # affected by the ambiguity; only sub-floor applicants depend on the open rule.
+  highest_stated_floor: 21
+
+max_licenses_per_person:
+  todo: "TODO(LRCD): Maximum licenses per natural person — the Guide says 6 but no legal basis was found. Confirm the cap and its source."
+  gating: true
+  stated_cap: 6
+
+apartment_inspection_sequencing:
+  todo: "TODO(LRCD): Apartment inspection sequencing — issue-before-inspect plus a 3-day booking duty are asserted without a resolved source. Confirm the timing obligation."
+  gating: false
+  asserted_booking_deadline_days: 3
+
+approval_authority_routing:
+  todo: "TODO(LRCD): Approval authority routing is unresolved — DCT 'Department' vs. Municipality + MCC. Confirm who signs off."
+  gating: false
+
+system_of_record_target:
+  todo: "TODO(LRCD): System-of-record target is unresolved — Holiday Homes System vs. TAMM. Confirm the persistence target."
+  gating: false
+
+operator_category_mapping:
+  todo: "TODO(LRCD): Operator category mapping is unresolved — 2026 Art. 4 terms vs. the Guide's 'Authorized Operator'. Confirm the canonical taxonomy."
+  gating: false
+  # Operator types whose mapping is ambiguous under the open rule.
+  ambiguous_operator_types:
+    - authorized_operator
+    - intermediary

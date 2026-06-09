@@ -1,0 +1,22 @@
+# Fee schedule and tourism fee rules.
+#
+# Placeholder figures for the prototype (currency: AED).
+# TODO(LRCD): confirm the authoritative fee schedule and any per-room/per-night
+# components before production use.
+
+license_fees:
+  apartment: 1000
+  villa: 1500
+  townhouse: 1200
+  farm: 2000
+  caravan: 500
+  floating: 2500
+
+# Flat administrative fee added to every application.
+admin_fee: 250
+
+# Monthly tourism fee charged on holiday-home revenue.
+tourism_fee:
+  rate: 0.06          # 6%
+  nil_declaration_required: true
+  remittance_deadline_day: 15   # day of the following month the remittance is due
