@@ -10,6 +10,23 @@ edit a little text, export 7 export-ready PNGs.
 | --- | --- |
 | `BRDG Photographer Spotlight.dc.html` | The template — all 7 frames, locked identity, Tweaks panel, PNG export. |
 | `image-slot.js` | The `<image-slot>` web component: drag-and-drop photo layers that remember what you drop and are **shared by id**. |
+| `spotlight/` | The same template packaged as an installable, fully-offline phone app (PWA). |
+
+## Install on your phone (PWA)
+
+The `spotlight/` folder is a Progressive Web App — real Gotham + Caveat and the
+export library are vendored locally, so it runs **fully offline** once installed.
+
+A PWA only installs when served over **HTTPS**, so host it via **GitHub Pages**:
+
+1. Merge to `main`, then on GitHub: **Settings → Pages → Source: Deploy from a
+   branch → `main` / root**.
+2. Open **`https://brdg42.github.io/others/spotlight/`** on your phone.
+3. **Share → Add to Home Screen.** It launches fullscreen and works offline.
+
+On the phone: tap a photo slot to pick from your library, edit the text in the
+**Edit** sheet, then **Share / Save 7 frames** to hand the PNGs straight to the
+iOS/Android share sheet (→ Instagram).
 
 ## Deliverables (per photographer)
 
