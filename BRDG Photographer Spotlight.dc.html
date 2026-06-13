@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BRDG · Photographer Spotlight</title>
+
+<!--
+  BRDG · Photographer Spotlight — locked template
+  ------------------------------------------------------------------
+  Deliverables, generated from one set of 5 photos + a little text:
+    Carousel  1080×1080  ×5   (intro + work 01–04)
+    Story     1080×1920  ×2   (intro + work 01)
+
+  Photo layers are <image-slot>s shared by id, so the portrait you drop
+  on "personal-shot" and the photo on "work-01" appear in the story too.
+  Drop 5 photos, edit the Tweaks panel, export. Identity is locked — do
+  not redesign; just refill.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;1,700;1,800&family=Caveat:wght@600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+  :root{
+    /* Brand identity — use exactly */
+    --coral:#D9543F;
+    --ink:#141414;
+    --paper:#F4F1EA;
+    --white:#FFFFFF;
+
+    --frame-inset:28px;     /* coral hairline frame inset */
+    --hair:1.5px;           /* hairline weight */
+    --k-square:0.40;        /* preview scale, square */
+    --k-story:0.32;         /* preview scale, story  */
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:#0e0e0e;color:var(--paper);font-family:Montserrat,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+
+  /* Logo families */
+  .ff-mont{font-family:'Gotham',Montserrat,system-ui,sans-serif;}
+  .ff-script{font-family:'Caveat',cursive;}
+
+  /* ───────────────────────── Workspace chrome (never exported) ──────────── */
+  .workspace{display:flex;min-height:100vh;}
+  .canvas{flex:1;padding:40px 44px 120px;overflow:auto;}
+  .canvas h1{font-size:15px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--paper);}
+  .canvas .sub{font-size:12px;font-weight:500;color:rgba(244,241,234,.45);margin-top:6px;letter-spacing:.4px;}
+
+  .group{margin-top:38px;}
+  .group-title{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(244,241,234,.5);margin-bottom:18px;}
+  .group-title::after{content:"";flex:1;height:1px;background:rgba(244,241,234,.12);}
+
+  .row{display:flex;flex-wrap:wrap;gap:26px;}
+  .cell{display:flex;flex-direction:column;gap:10px;}
+  .cell .cap{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;font-weight:600;color:rgba(244,241,234,.6);letter-spacing:.3px;}
+  .cell .cap b{color:var(--paper);font-weight:700;}
+
+  .png-btn{appearance:none;border:1px solid rgba(217,84,63,.55);background:rgba(217,84,63,.12);color:#f2b6aa;font:inherit;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:5px 9px;border-radius:6px;cursor:pointer;transition:.15s;}
+  .png-btn:hover{background:var(--coral);color:#fff;border-color:var(--coral);}
+
+  /* A "stage" holds a native-resolution frame and scales it down for preview.
+     Export clears the transform so the frame is captured at native 1080. */
+  .stage{transform-origin:top left;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .stage.square{width:calc(1080px * var(--k-square));height:calc(1080px * var(--k-square));}
+  .stage.story{width:calc(1080px * var(--k-story));height:calc(1080px * var(--k-story));}
+  .stage.square > .frame{transform:scale(var(--k-square));}
+  .stage.story  > .frame{transform:scale(var(--k-story));}
+  .stage.capturing > .frame{transform:none !important;}
+
+  /* ───────────────────────────── The frame ───────────────────────────────── */
+  .frame{position:relative;transform-origin:top left;overflow:hidden;background:var(--ink);color:var(--paper);}
+  .frame.square{width:1080px;height:1080px;}
+  .frame.story{width:1080px;height:1920px;}
+
+  .frame .photo{position:absolute;inset:0;}
+  .frame .photo image-slot{display:block;width:100%;height:100%;}
+
+  /* Scrims */
+  .scrim-bottom{position:absolute;left:0;right:0;bottom:0;pointer-events:none;
+    background:linear-gradient(to top,
+      rgba(20,20,20,.94) 0%,
+      rgba(20,20,20,.82) 14%,
+      rgba(20,20,20,.42) 34%,
+      rgba(20,20,20,0) 58%);}
+  .scrim-top{position:absolute;left:0;right:0;top:0;height:34%;pointer-events:none;
+    background:linear-gradient(to bottom,rgba(20,20,20,.78) 0%,rgba(20,20,20,.3) 45%,rgba(20,20,20,0) 100%);}
+  .scrim-bottom.tall{background:linear-gradient(to top,
+      rgba(20,20,20,.95) 0%,
+      rgba(20,20,20,.85) 18%,
+      rgba(20,20,20,.45) 40%,
+      rgba(20,20,20,0) 64%);}
+
+  /* Coral hairline frame — present on every deliverable */
+  .hairline{position:absolute;inset:var(--frame-inset);border:var(--hair) solid var(--coral);pointer-events:none;}
+
+  /* Wordmark — Logo A only, lowercase bold italic */
+  .wordmark{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;color:var(--white);line-height:.9;letter-spacing:-1px;}
+
+  /* Intro kicker: PHOTOGRAPHER + script "Spotlight" */
+  .kicker{display:flex;align-items:baseline;gap:14px;}
+  .kicker .label{font-weight:600;letter-spacing:6px;text-transform:uppercase;color:rgba(244,241,234,.92);}
+  .kicker .script{font-family:'Caveat',cursive;color:var(--coral);font-weight:700;line-height:.8;}
+
+  .edition{font-weight:600;letter-spacing:3px;text-transform:uppercase;color:rgba(244,241,234,.9);}
+  .edition .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--coral);margin-right:10px;vertical-align:middle;}
+
+  /* Intro meta block (bottom-left) */
+  .meta .name{font-weight:800;color:var(--white);line-height:1.02;letter-spacing:-1.5px;}
+  .meta .handle{font-weight:700;color:var(--coral);letter-spacing:.3px;}
+  .meta .loc{font-weight:600;color:rgba(244,241,234,.92);display:flex;align-items:center;gap:8px;}
+  .meta .bio{font-weight:500;color:rgba(244,241,234,.82);line-height:1.45;max-width:760px;}
+
+  /* Work-slide minimal credit */
+  .credit{position:absolute;font-weight:700;color:var(--coral);letter-spacing:.4px;}
+  .corner-mark{position:absolute;border:var(--hair) solid var(--coral);border-left:none;border-bottom:none;pointer-events:none;}
+  .mini-wordmark{position:absolute;font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;color:rgba(255,255,255,.92);letter-spacing:-.5px;}
+
+  /* Story footer band */
+  .footer-band{position:absolute;left:0;right:0;bottom:0;background:var(--coral);display:flex;align-items:center;justify-content:space-between;}
+  .footer-band .fb-word{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;color:var(--paper);letter-spacing:-1px;}
+  .footer-band .fb-tag{font-weight:600;letter-spacing:3px;text-transform:uppercase;color:rgba(244,241,234,.92);}
+
+  /* Swipe cue */
+  .swipe{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:14px;color:rgba(244,241,234,.9);}
+  .swipe .chev{width:30px;height:30px;border-right:3px solid var(--coral);border-bottom:3px solid var(--coral);transform:rotate(-135deg);}
+  .swipe .txt{font-weight:600;letter-spacing:3px;text-transform:uppercase;}
+
+  /* ───────────────────────────── Tweaks panel ───────────────────────────── */
+  .tweaks{width:330px;flex:0 0 330px;background:#161616;border-left:1px solid rgba(244,241,234,.1);padding:28px 24px;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;}
+  .tweaks .brand{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;font-size:26px;color:var(--coral);letter-spacing:-1px;}
+  .tweaks .brand small{display:block;font-style:normal;font-weight:600;font-size:10px;letter-spacing:2px;color:rgba(244,241,234,.5);margin-top:4px;text-transform:uppercase;}
+  .tweaks h3{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(244,241,234,.45);margin:26px 0 12px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(244,241,234,.55);margin-bottom:6px;}
+  .field input,.field textarea{width:100%;background:#1f1f1f;border:1px solid rgba(244,241,234,.14);border-radius:8px;color:var(--paper);font:inherit;font-size:13px;padding:9px 11px;outline:none;transition:border-color .15s;}
+  .field input:focus,.field textarea:focus{border-color:var(--coral);}
+  .field textarea{resize:vertical;min-height:62px;line-height:1.4;}
+  .tweaks .actions{display:flex;flex-direction:column;gap:10px;margin-top:18px;}
+  .act{appearance:none;border:none;border-radius:9px;font:inherit;font-size:12px;font-weight:700;letter-spacing:.6px;padding:12px;cursor:pointer;transition:.15s;}
+  .act.primary{background:var(--coral);color:#fff;}
+  .act.primary:hover{background:#bf4533;}
+  .act.ghost{background:transparent;color:rgba(244,241,234,.75);border:1px solid rgba(244,241,234,.18);}
+  .act.ghost:hover{border-color:rgba(244,241,234,.4);color:var(--paper);}
+  .hint{font-size:11px;line-height:1.5;color:rgba(244,241,234,.45);margin-top:14px;}
+  .hint b{color:rgba(244,241,234,.7);font-weight:700;}
+
+  #toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);border:1px solid var(--coral);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:12px;font-weight:600;letter-spacing:.3px;opacity:0;pointer-events:none;transition:.25s;z-index:99;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+
+<body>
+<div class="workspace">
+
+  <!-- ════════════════════════════ CANVAS ════════════════════════════ -->
+  <main class="canvas">
+    <h1>BRDG · Photographer <span class="ff-script" style="font-size:22px;color:var(--coral);text-transform:none;letter-spacing:0">Spotlight</span></h1>
+    <p class="sub">Drop 5 photos on the named slots · edit text on the right · export 7 PNGs.</p>
+
+    <!-- ───────────── CAROUSEL 1080×1080 ───────────── -->
+    <section class="group">
+      <div class="group-title">Carousel · 1080 × 1080 · 5 frames</div>
+      <div class="row">
+
+        <!-- Slide 1 — Intro (Option A · Cinematic) -->
+        <div class="cell">
+          <div class="cap"><span><b>1</b> · Intro</span><button class="png-btn" data-export="cap-c1" data-name="carousel-1-intro">PNG</button></div>
+          <div class="stage square">
+            <div class="frame square" id="cap-c1">
+              <div class="photo"><image-slot id="personal-shot" label="PERSONAL SHOT" fit="cover"></image-slot></div>
+              <div class="scrim-top"></div>
+              <div class="scrim-bottom"></div>
+
+              <!-- top-left: wordmark + kicker -->
+              <div style="position:absolute;top:66px;left:66px;">
+                <div class="wordmark" style="font-size:64px;">brdg</div>
+                <div class="kicker" style="margin-top:16px;">
+                  <span class="label" style="font-size:18px;">Photographer</span>
+                  <span class="script" style="font-size:52px;">Spotlight</span>
+                </div>
+              </div>
+              <!-- top-right: edition -->
+              <div class="edition" style="position:absolute;top:78px;right:66px;font-size:20px;"><span class="dot"></span><span data-field="edition">No. 01</span></div>
+
+              <!-- bottom-left: meta -->
+              <div class="meta" style="position:absolute;left:66px;right:66px;bottom:78px;">
+                <div class="name" style="font-size:84px;" data-field="photographerName">Photographer Name</div>
+                <div class="handle" style="font-size:30px;margin-top:14px;" data-field="handle">@handle</div>
+                <div class="loc" style="font-size:24px;margin-top:16px;"><span>📍</span><span data-field="location">Abu Dhabi, UAE</span></div>
+                <div class="bio" style="font-size:25px;margin-top:18px;" data-field="bio">A one or two line bio in BRDG's editorial voice.</div>
+              </div>
+              <div class="hairline"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slides 2–5 — Work -->
+        <div class="cell">
+          <div class="cap"><span><b>2</b> · Work 01</span><button class="png-btn" data-export="cap-c2" data-name="carousel-2-work01">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c2" data-slot="work-01"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>3</b> · Work 02</span><button class="png-btn" data-export="cap-c3" data-name="carousel-3-work02">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c3" data-slot="work-02"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>4</b> · Work 03</span><button class="png-btn" data-export="cap-c4" data-name="carousel-4-work03">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c4" data-slot="work-03"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>5</b> · Work 04</span><button class="png-btn" data-export="cap-c5" data-name="carousel-5-work04">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c5" data-slot="work-04"></div></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ───────────── STORY 1080×1920 ───────────── -->
+    <section class="group">
+      <div class="group-title">Story · 1080 × 1920 · 2 frames</div>
+      <div class="row">
+
+        <!-- Story 1 — Intro -->
+        <div class="cell">
+          <div class="cap"><span><b>1</b> · Intro</span><button class="png-btn" data-export="cap-s1" data-name="story-1-intro">PNG</button></div>
+          <div class="stage story">
+            <div class="frame story" id="cap-s1">
+              <div class="photo"><image-slot id="personal-shot" label="PERSONAL SHOT" fit="cover"></image-slot></div>
+              <div class="scrim-top"></div>
+              <div class="scrim-bottom tall"></div>
+
+              <div style="position:absolute;top:96px;left:72px;">
+                <div class="wordmark" style="font-size:76px;">brdg</div>
+                <div class="kicker" style="margin-top:18px;">
+                  <span class="label" style="font-size:20px;">Photographer</span>
+                  <span class="script" style="font-size:60px;">Spotlight</span>
+                </div>
+              </div>
+              <div class="edition" style="position:absolute;top:112px;right:72px;font-size:22px;"><span class="dot"></span><span data-field="edition">No. 01</span></div>
+
+              <div class="meta" style="position:absolute;left:72px;right:72px;bottom:320px;">
+                <div class="name" style="font-size:96px;" data-field="photographerName">Photographer Name</div>
+                <div class="handle" style="font-size:34px;margin-top:16px;" data-field="handle">@handle</div>
+                <div class="loc" style="font-size:27px;margin-top:18px;"><span>📍</span><span data-field="location">Abu Dhabi, UAE</span></div>
+                <div class="bio" style="font-size:28px;margin-top:20px;" data-field="bio">A one or two line bio in BRDG's editorial voice.</div>
+              </div>
+
+              <!-- swipe cue -->
+              <div class="swipe" style="bottom:208px;">
+                <div class="chev"></div>
+                <div class="txt" style="font-size:24px;">Swipe up · See more</div>
+              </div>
+
+              <!-- coral footer band -->
+              <div class="footer-band" style="height:140px;padding:0 72px;">
+                <span class="fb-word" style="font-size:52px;">brdg</span>
+                <span class="fb-tag" style="font-size:18px;">Photographer Spotlight</span>
+              </div>
+              <div class="hairline"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Story 2 — Work (shares work-01) -->
+        <div class="cell">
+          <div class="cap"><span><b>2</b> · Work</span><button class="png-btn" data-export="cap-s2" data-name="story-2-work01">PNG</button></div>
+          <div class="stage story"><div class="frame story work" id="cap-s2" data-slot="work-01"></div></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- ════════════════════════════ TWEAKS ════════════════════════════ -->
+  <aside class="tweaks">
+    <div class="brand">brdg<small>Photographer Spotlight</small></div>
+
+    <h3>Text</h3>
+    <div class="field"><label>Photographer name</label><input id="f-photographerName" type="text" placeholder="e.g. Layla Hassan"/></div>
+    <div class="field"><label>@handle</label><input id="f-handle" type="text" placeholder="@laylashoots"/></div>
+    <div class="field"><label>Location</label><input id="f-location" type="text" placeholder="Abu Dhabi, UAE"/></div>
+    <div class="field"><label>Bio (1–2 lines)</label><textarea id="f-bio" placeholder="A line or two on the work, in BRDG's voice."></textarea></div>
+    <div class="field"><label>Edition no.</label><input id="f-edition" type="text" placeholder="No. 01"/></div>
+
+    <h3>Export</h3>
+    <div class="actions">
+      <button class="act primary" id="export-all">Export all 7 PNGs</button>
+      <button class="act ghost" id="reset-photos">Reset photos</button>
+    </div>
+    <p class="hint">
+      Drop the <b>portrait</b> on <b>PERSONAL SHOT</b> and the four shots on
+      <b>WORK 01–04</b>. The portrait + Work 01 carry into the Story automatically.
+      Slots remember what you drop. Identity is locked — refill, don't redesign.
+    </p>
+  </aside>
+</div>
+
+<div id="toast"></div>
+
+<!-- Work slides are built from one template so the minimal credit / mark /
+     wordmark stay identical across all of them. -->
+<template id="work-template">
+  <div class="photo"><image-slot fit="cover"></image-slot></div>
+  <div class="scrim-bottom"></div>
+  <div class="hairline"></div>
+  <div class="credit"></div>
+  <span class="mini-wordmark">brdg</span>
+  <div class="corner-mark"></div>
+</template>
+
+<script src="image-slot.js"></script>
+<script>
+(function(){
+  'use strict';
+  var FIELDS = ['photographerName','handle','location','bio','edition'];
+  var DEFAULTS = {
+    photographerName:'Photographer Name',
+    handle:'@handle',
+    location:'Abu Dhabi, UAE',
+    bio:"A one or two line bio in BRDG's editorial voice.",
+    edition:'No. 01'
+  };
+  var TEXT_KEY = 'brdg-spotlight-text';
+
+  /* ---- Build the work frames from the template ---- */
+  function buildWorkFrames(){
+    var tpl = document.getElementById('work-template');
+    document.querySelectorAll('.frame.work').forEach(function(frame){
+      var slotId = frame.getAttribute('data-slot');
+      var node = tpl.content.cloneNode(true);
+      node.querySelector('image-slot').setAttribute('id', slotId);
+      node.querySelector('image-slot').setAttribute('label', slotId.replace('-',' ').toUpperCase());
+      var story = frame.classList.contains('story');
+
+      // Minimal coral @handle credit, bottom-left
+      var credit = node.querySelector('.credit');
+      credit.setAttribute('data-field','handle');
+      credit.style.left = '66px';
+      credit.style.bottom = story ? '70px' : '64px';
+      credit.style.fontSize = story ? '30px' : '28px';
+
+      // tiny wordmark sits next to the corner mark, bottom-right
+      var word = node.querySelector('.mini-wordmark');
+      word.style.right = (story ? 96 : 92) + 'px';
+      word.style.bottom = (story ? 70 : 64) + 'px';
+      word.style.fontSize = (story ? 30 : 28) + 'px';
+
+      // thin coral corner mark, bottom-right
+      var mark = node.querySelector('.corner-mark');
+      var sz = story ? 30 : 28;
+      mark.style.right = '64px';
+      mark.style.bottom = (story ? 72 : 66) + 'px';
+      mark.style.width = sz + 'px';
+      mark.style.height = sz + 'px';
+
+      frame.appendChild(node);
+    });
+  }
+
+  /* ---- Text binding ---- */
+  function normHandle(v){ v = (v||'').trim(); if(v && v[0] !== '@') v = '@' + v; return v; }
+  function render(state){
+    FIELDS.forEach(function(f){
+      var val = state[f] != null && state[f] !== '' ? state[f] : DEFAULTS[f];
+      document.querySelectorAll('[data-field="'+f+'"]').forEach(function(el){ el.textContent = val; });
+    });
+  }
+  function loadText(){
+    var s = {};
+    try { s = JSON.parse(localStorage.getItem(TEXT_KEY)||'{}'); } catch(e){}
+    return s;
+  }
+  function saveText(state){ try { localStorage.setItem(TEXT_KEY, JSON.stringify(state)); } catch(e){} }
+
+  var state = Object.assign({}, loadText());
+
+  function wireFields(){
+    FIELDS.forEach(function(f){
+      var input = document.getElementById('f-'+f);
+      if(state[f] != null) input.value = state[f];
+      input.addEventListener('input', function(){
+        state[f] = (f === 'handle') ? normHandle(input.value) : input.value;
+        saveText(state); render(state);
+      });
+      if(f === 'handle'){
+        input.addEventListener('blur', function(){
+          input.value = state.handle = normHandle(input.value);
+          saveText(state); render(state);
+        });
+      }
+    });
+  }
+
+  /* ---- Export ---- */
+  function toast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(function(){ t.classList.remove('show'); }, 2200);
+  }
+
+  function captureFrame(frameId, fileBase){
+    return new Promise(function(resolve){
+      var frame = document.getElementById(frameId);
+      var stage = frame.closest('.stage');
+      var w = frame.classList.contains('story') ? 1080 : 1080;
+      var h = frame.classList.contains('story') ? 1920 : 1080;
+      stage.classList.add('capturing');          // clear the preview scale → native 1080
+      // give layout a tick
+      requestAnimationFrame(function(){
+        html2canvas(frame, {width:w, height:h, scale:1, backgroundColor:'#141414', useCORS:true, logging:false})
+          .then(function(canvas){
+            stage.classList.remove('capturing');
+            var link = document.createElement('a');
+            link.download = fileBase + '.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            resolve();
+          })
+          .catch(function(err){
+            stage.classList.remove('capturing');
+            console.error(err); toast('Export failed — see console.');
+            resolve();
+          });
+      });
+    });
+  }
+
+  function slug(){
+    var n = (state.photographerName || DEFAULTS.photographerName).trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    return n || 'photographer';
+  }
+
+  function wireExport(){
+    document.querySelectorAll('[data-export]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var base = 'brdg-spotlight-' + slug() + '-' + btn.getAttribute('data-name');
+        captureFrame(btn.getAttribute('data-export'), base);
+      });
+    });
+
+    document.getElementById('export-all').addEventListener('click', function(){
+      var seq = [
+        ['cap-c1','carousel-1-intro'],['cap-c2','carousel-2-work01'],
+        ['cap-c3','carousel-3-work02'],['cap-c4','carousel-4-work03'],
+        ['cap-c5','carousel-5-work04'],['cap-s1','story-1-intro'],['cap-s2','story-2-work01']
+      ];
+      var base = 'brdg-spotlight-' + slug() + '-';
+      toast('Exporting 7 frames…');
+      (function next(i){
+        if(i >= seq.length){ toast('Exported all 7 PNGs ✓'); return; }
+        captureFrame(seq[i][0], base + seq[i][1]).then(function(){ setTimeout(function(){ next(i+1); }, 250); });
+      })(0);
+    });
+
+    document.getElementById('reset-photos').addEventListener('click', function(){
+      if(window.BRDGSlots){ window.BRDGSlots.clearAll(); toast('Photos cleared.'); }
+    });
+  }
+
+  /* ---- Boot ---- */
+  function boot(){
+    buildWorkFrames();
+    wireFields();
+    wireExport();
+    render(state);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>
