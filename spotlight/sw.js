@@ -1,6 +1,6 @@
 /* BRDG · Photographer Spotlight — service worker.
    Precaches the whole app shell so it runs fully offline once installed. */
-const CACHE = 'brdg-spotlight-v1';
+const CACHE = 'brdg-spotlight-v2';
 
 const ASSETS = [
   './',
@@ -9,6 +9,9 @@ const ASSETS = [
   './manifest.webmanifest',
   './assets/html2canvas.min.js',
   './assets/fonts/fonts.css',
+  './assets/fonts/gotham-medium.woff2',
+  './assets/fonts/gotham-bold.woff2',
+  './assets/fonts/gotham-bold-italic.woff2',
   './assets/fonts/montserrat-latin-500-normal.woff2',
   './assets/fonts/montserrat-latin-600-normal.woff2',
   './assets/fonts/montserrat-latin-700-normal.woff2',
