@@ -1,0 +1,16 @@
+{
+  "name": "BRDG · Photographer Spotlight",
+  "short_name": "BRDG Spotlight",
+  "description": "Generate the BRDG · Photographer Spotlight Instagram set — 5 carousel frames + 2 story frames — from 5 photos and a little text.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e0e0e",
+  "theme_color": "#141414",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

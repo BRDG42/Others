@@ -1,0 +1,9 @@
+/* Locally-vendored BRDG type — works fully offline (no Google Fonts CDN). */
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:500;font-display:swap;src:url('montserrat-latin-500-normal.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:600;font-display:swap;src:url('montserrat-latin-600-normal.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:700;font-display:swap;src:url('montserrat-latin-700-normal.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:normal;font-weight:800;font-display:swap;src:url('montserrat-latin-800-normal.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:italic;font-weight:700;font-display:swap;src:url('montserrat-latin-700-italic.woff2') format('woff2');}
+@font-face{font-family:'Montserrat';font-style:italic;font-weight:800;font-display:swap;src:url('montserrat-latin-800-italic.woff2') format('woff2');}
+@font-face{font-family:'Caveat';font-style:normal;font-weight:600;font-display:swap;src:url('caveat-latin-600-normal.woff2') format('woff2');}
+@font-face{font-family:'Caveat';font-style:normal;font-weight:700;font-display:swap;src:url('caveat-latin-700-normal.woff2') format('woff2');}
