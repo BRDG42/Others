@@ -6,7 +6,7 @@ import {
 import {
   CheckCircle, Target, Clock, Shield, ChevronDown, ChevronRight,
   MessageSquare, Loader, Bot, Send, Mail, X, Minimize2, Maximize2,
-  User, RotateCcw, AlertTriangle, Sparkles, ChevronUp, ArrowRight
+  User, RotateCcw, AlertTriangle, Sparkles, ChevronUp, ArrowRight, Instagram
 } from 'lucide-react';
 
 const C = {
@@ -799,6 +799,11 @@ export default function Dashboard() {
           <p style={{ color: C.gray500, fontSize: 10, fontWeight: 500, letterSpacing: 0.5 }}>
             Smart Check-In Project Dashboard &nbsp;•&nbsp; DCT Abu Dhabi &nbsp;•&nbsp; Updated: March 4, 2026
           </p>
+          <a href="https://www.instagram.com/brdgconcept" target="_blank" rel="noopener noreferrer"
+            title="Follow BRDG Concept on Instagram"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, padding: '7px 14px', borderRadius: 20, textDecoration: 'none', color: C.white, fontSize: 11, fontWeight: 700, letterSpacing: 0.3, background: 'linear-gradient(135deg, #f58529, #dd2a7b 50%, #8134af 90%)', boxShadow: '0 2px 8px rgba(221,42,123,0.25)' }}>
+            <Instagram size={14} /> @brdgconcept
+          </a>
         </div>
       </div>
     </div>

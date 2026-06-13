@@ -37,6 +37,10 @@ index.html                  # Standalone dashboard (deployment entry point)
 SmartCheckInDashboard.jsx   # React component source
 ```
 
+## Connect
+
+- **Instagram** — [@brdgconcept](https://www.instagram.com/brdgconcept)
+
 ## License
 
 Internal use — DCT Abu Dhabi.
