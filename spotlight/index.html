@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"/>
+<title>BRDG · Photographer Spotlight</title>
+<meta name="description" content="Generate the BRDG Photographer Spotlight Instagram set from 5 photos + a little text."/>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="theme-color" content="#141414"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="BRDG Spotlight"/>
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png"/>
+
+<!-- Vendored locally → works offline -->
+<link rel="stylesheet" href="assets/fonts/fonts.css"/>
+<script src="assets/html2canvas.min.js" defer></script>
+
+<style>
+  :root{
+    --coral:#D9543F; --ink:#141414; --paper:#F4F1EA; --white:#FFFFFF;
+    --frame-inset:28px; --hair:1.5px;
+    --k-square:0.40; --k-story:0.32;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:#0e0e0e;color:var(--paper);font-family:'Gotham',Montserrat,system-ui,sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;}
+  .ff-script{font-family:'Caveat',cursive;}
+
+  /* ── App bar (mobile) ── */
+  .appbar{display:none;position:sticky;top:0;z-index:40;align-items:center;justify-content:space-between;
+    gap:10px;padding:calc(10px + var(--safe-top)) 16px 10px;background:rgba(14,14,14,.92);backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(244,241,234,.1);}
+  .appbar .mk{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;font-size:22px;color:var(--coral);letter-spacing:-1px;}
+  .appbar .ab-actions{display:flex;gap:8px;}
+  .ab-btn{appearance:none;border:1px solid rgba(244,241,234,.18);background:#1c1c1c;color:var(--paper);font:inherit;font-size:12px;font-weight:700;letter-spacing:.4px;padding:9px 14px;border-radius:9px;cursor:pointer;}
+  .ab-btn.primary{background:var(--coral);border-color:var(--coral);color:#fff;}
+
+  /* ── Workspace ── */
+  .workspace{display:flex;min-height:100vh;}
+  .canvas{flex:1;padding:40px 44px 120px;overflow:auto;}
+  .canvas h1{font-size:15px;font-weight:800;letter-spacing:3px;text-transform:uppercase;}
+  .canvas .sub{font-size:12px;font-weight:500;color:rgba(244,241,234,.45);margin-top:6px;}
+  .group{margin-top:38px;}
+  .group-title{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:rgba(244,241,234,.5);margin-bottom:18px;}
+  .group-title::after{content:"";flex:1;height:1px;background:rgba(244,241,234,.12);}
+  .row{display:flex;flex-wrap:wrap;gap:26px;}
+  .cell{display:flex;flex-direction:column;gap:10px;}
+  .cell .cap{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;font-weight:600;color:rgba(244,241,234,.6);}
+  .cell .cap b{color:var(--paper);font-weight:700;}
+  .png-btn{appearance:none;border:1px solid rgba(217,84,63,.55);background:rgba(217,84,63,.12);color:#f2b6aa;font:inherit;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:5px 9px;border-radius:6px;cursor:pointer;transition:.15s;}
+  .png-btn:hover{background:var(--coral);color:#fff;border-color:var(--coral);}
+
+  .stage{transform-origin:top left;background:#000;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .stage.square{width:calc(1080px * var(--k-square));height:calc(1080px * var(--k-square));}
+  .stage.story{width:calc(1080px * var(--k-story));height:calc(1080px * var(--k-story));}
+  .stage.square > .frame{transform:scale(var(--k-square));}
+  .stage.story  > .frame{transform:scale(var(--k-story));}
+  .stage.capturing > .frame{transform:none !important;}
+
+  /* ── Frame ── */
+  .frame{position:relative;transform-origin:top left;overflow:hidden;background:var(--ink);color:var(--paper);}
+  .frame.square{width:1080px;height:1080px;}
+  .frame.story{width:1080px;height:1920px;}
+  .frame .photo{position:absolute;inset:0;}
+  .frame .photo image-slot{display:block;width:100%;height:100%;}
+  .scrim-bottom{position:absolute;left:0;right:0;bottom:0;pointer-events:none;background:linear-gradient(to top,rgba(20,20,20,.94) 0%,rgba(20,20,20,.82) 14%,rgba(20,20,20,.42) 34%,rgba(20,20,20,0) 58%);}
+  .scrim-top{position:absolute;left:0;right:0;top:0;height:34%;pointer-events:none;background:linear-gradient(to bottom,rgba(20,20,20,.78) 0%,rgba(20,20,20,.3) 45%,rgba(20,20,20,0) 100%);}
+  .scrim-bottom.tall{background:linear-gradient(to top,rgba(20,20,20,.95) 0%,rgba(20,20,20,.85) 18%,rgba(20,20,20,.45) 40%,rgba(20,20,20,0) 64%);}
+  .hairline{position:absolute;inset:var(--frame-inset);border:var(--hair) solid var(--coral);pointer-events:none;}
+  .wordmark{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;color:var(--white);line-height:.9;letter-spacing:-1px;}
+  .kicker{display:flex;align-items:baseline;gap:14px;}
+  .kicker .label{font-weight:600;letter-spacing:6px;text-transform:uppercase;color:rgba(244,241,234,.92);}
+  .kicker .script{font-family:'Caveat',cursive;color:var(--coral);font-weight:700;line-height:.8;}
+  .edition{font-weight:600;letter-spacing:3px;text-transform:uppercase;color:rgba(244,241,234,.9);}
+  .edition .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--coral);margin-right:10px;vertical-align:middle;}
+  .meta .name{font-weight:800;color:var(--white);line-height:1.02;letter-spacing:-1.5px;}
+  .meta .handle{font-weight:700;color:var(--coral);letter-spacing:.3px;}
+  .meta .loc{font-weight:600;color:rgba(244,241,234,.92);display:flex;align-items:center;gap:8px;}
+  .meta .bio{font-weight:500;color:rgba(244,241,234,.82);line-height:1.45;max-width:760px;}
+  .credit{position:absolute;font-weight:700;color:var(--coral);letter-spacing:.4px;}
+  .corner-mark{position:absolute;border:var(--hair) solid var(--coral);border-left:none;border-bottom:none;pointer-events:none;}
+  .mini-wordmark{position:absolute;font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;color:rgba(255,255,255,.92);letter-spacing:-.5px;}
+  .footer-band{position:absolute;left:0;right:0;bottom:0;background:var(--coral);display:flex;align-items:center;justify-content:space-between;}
+  .footer-band .fb-word{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;color:var(--paper);letter-spacing:-1px;}
+  .footer-band .fb-tag{font-weight:600;letter-spacing:3px;text-transform:uppercase;color:rgba(244,241,234,.92);}
+  .swipe{position:absolute;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:14px;color:rgba(244,241,234,.9);}
+  .swipe .chev{width:30px;height:30px;border-right:3px solid var(--coral);border-bottom:3px solid var(--coral);transform:rotate(-135deg);}
+  .swipe .txt{font-weight:600;letter-spacing:3px;text-transform:uppercase;}
+
+  /* ── Tweaks (sidebar on desktop, bottom-sheet on mobile) ── */
+  .tweaks{width:330px;flex:0 0 330px;background:#161616;border-left:1px solid rgba(244,241,234,.1);padding:28px 24px;position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;}
+  .tweaks .brand{font-family:'Gotham',Montserrat,sans-serif;font-style:italic;font-weight:800;font-size:26px;color:var(--coral);letter-spacing:-1px;}
+  .tweaks .brand small{display:block;font-style:normal;font-weight:600;font-size:10px;letter-spacing:2px;color:rgba(244,241,234,.5);margin-top:4px;text-transform:uppercase;}
+  .tweaks h3{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:rgba(244,241,234,.45);margin:26px 0 12px;}
+  .sheet-handle,.sheet-close{display:none;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(244,241,234,.55);margin-bottom:6px;}
+  .field input,.field textarea{width:100%;background:#1f1f1f;border:1px solid rgba(244,241,234,.14);border-radius:8px;color:var(--paper);font:inherit;font-size:16px;padding:10px 12px;outline:none;transition:border-color .15s;}
+  .field input:focus,.field textarea:focus{border-color:var(--coral);}
+  .field textarea{resize:vertical;min-height:62px;line-height:1.4;}
+  .tweaks .actions{display:flex;flex-direction:column;gap:10px;margin-top:18px;}
+  .act{appearance:none;border:none;border-radius:9px;font:inherit;font-size:13px;font-weight:700;letter-spacing:.6px;padding:13px;cursor:pointer;transition:.15s;}
+  .act.primary{background:var(--coral);color:#fff;}
+  .act.primary:hover{background:#bf4533;}
+  .act.ghost{background:transparent;color:rgba(244,241,234,.75);border:1px solid rgba(244,241,234,.18);}
+  .hint{font-size:11px;line-height:1.5;color:rgba(244,241,234,.45);margin-top:14px;}
+  .hint b{color:rgba(244,241,234,.7);font-weight:700;}
+  .scrim-cover{display:none;}
+
+  #toast{position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);border:1px solid var(--coral);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:12px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:88vw;text-align:center;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* Install hint (Add to Home Screen) */
+  #install{display:none;position:fixed;left:50%;bottom:calc(20px + var(--safe-bottom));transform:translateX(-50%);z-index:60;background:var(--coral);color:#fff;border:none;border-radius:12px;padding:13px 18px;font:inherit;font-weight:700;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.4);cursor:pointer;}
+
+  /* ───────── Mobile ───────── */
+  @media (max-width:900px){
+    .appbar{display:flex;}
+    .workspace{display:block;}
+    .canvas{padding:18px 16px calc(40px + var(--safe-bottom));}
+    .canvas h1{display:none;}
+    .canvas .sub{display:none;}
+    .row{justify-content:center;gap:30px;}
+    .cell{width:100%;align-items:center;}
+    .cell .cap{width:calc(1080px * var(--k-square));max-width:100%;}
+    .group-title{margin-bottom:12px;}
+
+    .scrim-cover{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:48;opacity:0;pointer-events:none;transition:.25s;}
+    body.sheet-open .scrim-cover{opacity:1;pointer-events:auto;}
+    .tweaks{position:fixed;left:0;right:0;bottom:0;top:auto;width:auto;height:auto;max-height:86vh;
+      border-left:none;border-top:1px solid rgba(244,241,234,.12);border-radius:20px 20px 0 0;
+      padding:10px 20px calc(24px + var(--safe-bottom));z-index:50;
+      transform:translateY(110%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:0 -20px 50px rgba(0,0,0,.5);}
+    body.sheet-open .tweaks{transform:translateY(0);}
+    .tweaks .brand{display:none;}
+    .sheet-handle{display:block;width:44px;height:5px;border-radius:3px;background:rgba(244,241,234,.25);margin:4px auto 8px;}
+    .sheet-close{display:block;position:absolute;top:12px;right:16px;background:none;border:none;color:rgba(244,241,234,.6);font-size:22px;line-height:1;cursor:pointer;}
+    .tweaks h3:first-of-type{margin-top:6px;}
+  }
+</style>
+</head>
+
+<body>
+
+<!-- Mobile app bar -->
+<header class="appbar">
+  <span class="mk">brdg</span>
+  <div class="ab-actions">
+    <button class="ab-btn" id="ab-edit">Edit</button>
+    <button class="ab-btn primary" id="ab-share">Share</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <main class="canvas">
+    <h1>BRDG · Photographer <span class="ff-script" style="font-size:22px;color:var(--coral);text-transform:none;letter-spacing:0">Spotlight</span></h1>
+    <p class="sub">Add 5 photos · edit the text · share or export 7 PNGs.</p>
+
+    <section class="group">
+      <div class="group-title">Carousel · 1080 × 1080 · 5 frames</div>
+      <div class="row">
+        <div class="cell">
+          <div class="cap"><span><b>1</b> · Intro</span><button class="png-btn" data-export="cap-c1" data-name="carousel-1-intro">PNG</button></div>
+          <div class="stage square">
+            <div class="frame square" id="cap-c1">
+              <div class="photo"><image-slot id="personal-shot" label="PERSONAL SHOT" fit="cover"></image-slot></div>
+              <div class="scrim-top"></div><div class="scrim-bottom"></div>
+              <div style="position:absolute;top:66px;left:66px;">
+                <div class="wordmark" style="font-size:64px;">brdg</div>
+                <div class="kicker" style="margin-top:16px;">
+                  <span class="label" style="font-size:18px;">Photographer</span>
+                  <span class="script" style="font-size:52px;">Spotlight</span>
+                </div>
+              </div>
+              <div class="edition" style="position:absolute;top:78px;right:66px;font-size:20px;"><span class="dot"></span><span data-field="edition">No. 01</span></div>
+              <div class="meta" style="position:absolute;left:66px;right:66px;bottom:78px;">
+                <div class="name" style="font-size:84px;" data-field="photographerName">Photographer Name</div>
+                <div class="handle" style="font-size:30px;margin-top:14px;" data-field="handle">@handle</div>
+                <div class="loc" style="font-size:24px;margin-top:16px;"><span>📍</span><span data-field="location">Abu Dhabi, UAE</span></div>
+                <div class="bio" style="font-size:25px;margin-top:18px;" data-field="bio">A one or two line bio in BRDG's editorial voice.</div>
+              </div>
+              <div class="hairline"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cell">
+          <div class="cap"><span><b>2</b> · Work 01</span><button class="png-btn" data-export="cap-c2" data-name="carousel-2-work01">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c2" data-slot="work-01"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>3</b> · Work 02</span><button class="png-btn" data-export="cap-c3" data-name="carousel-3-work02">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c3" data-slot="work-02"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>4</b> · Work 03</span><button class="png-btn" data-export="cap-c4" data-name="carousel-4-work03">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c4" data-slot="work-03"></div></div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>5</b> · Work 04</span><button class="png-btn" data-export="cap-c5" data-name="carousel-5-work04">PNG</button></div>
+          <div class="stage square"><div class="frame square work" id="cap-c5" data-slot="work-04"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="group">
+      <div class="group-title">Story · 1080 × 1920 · 2 frames</div>
+      <div class="row">
+        <div class="cell">
+          <div class="cap"><span><b>1</b> · Intro</span><button class="png-btn" data-export="cap-s1" data-name="story-1-intro">PNG</button></div>
+          <div class="stage story">
+            <div class="frame story" id="cap-s1">
+              <div class="photo"><image-slot id="personal-shot" label="PERSONAL SHOT" fit="cover"></image-slot></div>
+              <div class="scrim-top"></div><div class="scrim-bottom tall"></div>
+              <div style="position:absolute;top:96px;left:72px;">
+                <div class="wordmark" style="font-size:76px;">brdg</div>
+                <div class="kicker" style="margin-top:18px;">
+                  <span class="label" style="font-size:20px;">Photographer</span>
+                  <span class="script" style="font-size:60px;">Spotlight</span>
+                </div>
+              </div>
+              <div class="edition" style="position:absolute;top:112px;right:72px;font-size:22px;"><span class="dot"></span><span data-field="edition">No. 01</span></div>
+              <div class="meta" style="position:absolute;left:72px;right:72px;bottom:320px;">
+                <div class="name" style="font-size:96px;" data-field="photographerName">Photographer Name</div>
+                <div class="handle" style="font-size:34px;margin-top:16px;" data-field="handle">@handle</div>
+                <div class="loc" style="font-size:27px;margin-top:18px;"><span>📍</span><span data-field="location">Abu Dhabi, UAE</span></div>
+                <div class="bio" style="font-size:28px;margin-top:20px;" data-field="bio">A one or two line bio in BRDG's editorial voice.</div>
+              </div>
+              <div class="swipe" style="bottom:208px;"><div class="chev"></div><div class="txt" style="font-size:24px;">Swipe up · See more</div></div>
+              <div class="footer-band" style="height:140px;padding:0 72px;">
+                <span class="fb-word" style="font-size:52px;">brdg</span>
+                <span class="fb-tag" style="font-size:18px;">Photographer Spotlight</span>
+              </div>
+              <div class="hairline"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cell">
+          <div class="cap"><span><b>2</b> · Work</span><button class="png-btn" data-export="cap-s2" data-name="story-2-work01">PNG</button></div>
+          <div class="stage story"><div class="frame story work" id="cap-s2" data-slot="work-01"></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="tweaks" id="tweaks">
+    <div class="sheet-handle"></div>
+    <button class="sheet-close" id="sheet-close" aria-label="Close">×</button>
+    <div class="brand">brdg<small>Photographer Spotlight</small></div>
+
+    <h3>Text</h3>
+    <div class="field"><label>Photographer name</label><input id="f-photographerName" type="text" autocapitalize="words" placeholder="e.g. Layla Hassan"/></div>
+    <div class="field"><label>@handle</label><input id="f-handle" type="text" autocapitalize="none" placeholder="@laylashoots"/></div>
+    <div class="field"><label>Location</label><input id="f-location" type="text" placeholder="Abu Dhabi, UAE"/></div>
+    <div class="field"><label>Bio (1–2 lines)</label><textarea id="f-bio" placeholder="A line or two on the work, in BRDG's voice."></textarea></div>
+    <div class="field"><label>Edition no.</label><input id="f-edition" type="text" placeholder="No. 01"/></div>
+
+    <h3>Export</h3>
+    <div class="actions">
+      <button class="act primary" id="share-all">Share / Save 7 frames</button>
+      <button class="act ghost" id="export-all">Download 7 PNGs</button>
+      <button class="act ghost" id="reset-photos">Reset photos</button>
+    </div>
+    <p class="hint">Add the <b>portrait</b> to <b>PERSONAL SHOT</b> and the four shots to <b>WORK 01–04</b>. The portrait + Work 01 carry into the Story automatically. Tap a slot to pick from your library.</p>
+  </aside>
+</div>
+
+<div class="scrim-cover" id="scrim-cover"></div>
+<button id="install">Install app</button>
+<div id="toast"></div>
+
+<template id="work-template">
+  <div class="photo"><image-slot fit="cover"></image-slot></div>
+  <div class="scrim-bottom"></div>
+  <div class="hairline"></div>
+  <div class="credit"></div>
+  <span class="mini-wordmark">brdg</span>
+  <div class="corner-mark"></div>
+</template>
+
+<script src="image-slot.js"></script>
+<script>
+(function(){
+  'use strict';
+  var FIELDS = ['photographerName','handle','location','bio','edition'];
+  var DEFAULTS = {
+    photographerName:'Photographer Name', handle:'@handle', location:'Abu Dhabi, UAE',
+    bio:"A one or two line bio in BRDG's editorial voice.", edition:'No. 01'
+  };
+  var TEXT_KEY = 'brdg-spotlight-text';
+
+  function buildWorkFrames(){
+    var tpl = document.getElementById('work-template');
+    document.querySelectorAll('.frame.work').forEach(function(frame){
+      var slotId = frame.getAttribute('data-slot');
+      var node = tpl.content.cloneNode(true);
+      var slot = node.querySelector('image-slot');
+      slot.setAttribute('id', slotId);
+      slot.setAttribute('label', slotId.replace('-',' ').toUpperCase());
+      var story = frame.classList.contains('story');
+      var credit = node.querySelector('.credit');
+      credit.setAttribute('data-field','handle');
+      credit.style.left='66px'; credit.style.bottom=(story?70:64)+'px'; credit.style.fontSize=(story?30:28)+'px';
+      var word = node.querySelector('.mini-wordmark');
+      word.style.right=(story?96:92)+'px'; word.style.bottom=(story?70:64)+'px'; word.style.fontSize=(story?30:28)+'px';
+      var mark = node.querySelector('.corner-mark'); var sz=story?30:28;
+      mark.style.right='64px'; mark.style.bottom=(story?72:66)+'px'; mark.style.width=sz+'px'; mark.style.height=sz+'px';
+      frame.appendChild(node);
+    });
+  }
+
+  function normHandle(v){ v=(v||'').trim(); if(v && v[0]!=='@') v='@'+v; return v; }
+  function render(state){
+    FIELDS.forEach(function(f){
+      var val = state[f]!=null && state[f]!=='' ? state[f] : DEFAULTS[f];
+      document.querySelectorAll('[data-field="'+f+'"]').forEach(function(el){ el.textContent=val; });
+    });
+  }
+  function loadText(){ try{ return JSON.parse(localStorage.getItem(TEXT_KEY)||'{}'); }catch(e){ return {}; } }
+  function saveText(s){ try{ localStorage.setItem(TEXT_KEY, JSON.stringify(s)); }catch(e){} }
+  var state = Object.assign({}, loadText());
+
+  function wireFields(){
+    FIELDS.forEach(function(f){
+      var input = document.getElementById('f-'+f);
+      if(state[f]!=null) input.value = state[f];
+      input.addEventListener('input', function(){
+        state[f] = (f==='handle') ? normHandle(input.value) : input.value;
+        saveText(state); render(state);
+      });
+      if(f==='handle') input.addEventListener('blur', function(){
+        input.value = state.handle = normHandle(input.value); saveText(state); render(state);
+      });
+    });
+  }
+
+  /* Fit the preview frames to the screen width on mobile. */
+  function fitScale(){
+    var canvas = document.querySelector('.canvas');
+    var avail = canvas.clientWidth - 4;
+    var kSq, kSt;
+    if(window.innerWidth <= 900){
+      kSq = Math.min(avail/1080, 0.62);
+      kSt = Math.min(avail/1080, 0.42);
+    } else { kSq = 0.40; kSt = 0.32; }
+    document.documentElement.style.setProperty('--k-square', kSq.toFixed(4));
+    document.documentElement.style.setProperty('--k-story', kSt.toFixed(4));
+  }
+
+  function toast(msg){
+    var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t=setTimeout(function(){ t.classList.remove('show'); }, 2400);
+  }
+
+  /* Render one frame to a native-resolution canvas. */
+  function renderCanvas(frameId){
+    return new Promise(function(resolve, reject){
+      var frame = document.getElementById(frameId);
+      var stage = frame.closest('.stage');
+      var w=1080, h=frame.classList.contains('story')?1920:1080;
+      stage.classList.add('capturing');
+      requestAnimationFrame(function(){
+        html2canvas(frame, {width:w,height:h,scale:1,backgroundColor:'#141414',useCORS:true,logging:false})
+          .then(function(c){ stage.classList.remove('capturing'); resolve(c); })
+          .catch(function(e){ stage.classList.remove('capturing'); reject(e); });
+      });
+    });
+  }
+  function canvasToBlob(c){ return new Promise(function(r){ c.toBlob(r, 'image/png'); }); }
+  function slug(){
+    var n=(state.photographerName||DEFAULTS.photographerName).trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    return n||'photographer';
+  }
+  var SEQ = [
+    ['cap-c1','carousel-1-intro'],['cap-c2','carousel-2-work01'],['cap-c3','carousel-3-work02'],
+    ['cap-c4','carousel-4-work03'],['cap-c5','carousel-5-work04'],['cap-s1','story-1-intro'],['cap-s2','story-2-work01']
+  ];
+
+  function downloadCanvas(c, name){
+    var a=document.createElement('a'); a.download=name+'.png'; a.href=c.toDataURL('image/png'); a.click();
+  }
+
+  function wireExport(){
+    document.querySelectorAll('[data-export]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var base='brdg-spotlight-'+slug()+'-'+btn.getAttribute('data-name');
+        renderCanvas(btn.getAttribute('data-export')).then(function(c){ downloadCanvas(c,base); })
+          .catch(function(e){ console.error(e); toast('Export failed.'); });
+      });
+    });
+
+    document.getElementById('export-all').addEventListener('click', function(){
+      var base='brdg-spotlight-'+slug()+'-'; toast('Exporting 7 frames…');
+      (function next(i){
+        if(i>=SEQ.length){ toast('Downloaded all 7 PNGs ✓'); return; }
+        renderCanvas(SEQ[i][0]).then(function(c){ downloadCanvas(c, base+SEQ[i][1]); setTimeout(function(){ next(i+1); }, 220); })
+          .catch(function(e){ console.error(e); toast('Export failed.'); });
+      })(0);
+    });
+
+    document.getElementById('share-all').addEventListener('click', shareAll);
+    document.getElementById('ab-share').addEventListener('click', shareAll);
+
+    document.getElementById('reset-photos').addEventListener('click', function(){
+      if(window.BRDGSlots){ window.BRDGSlots.clearAll(); toast('Photos cleared.'); }
+    });
+  }
+
+  function shareAll(){
+    toast('Preparing 7 frames…');
+    var files=[]; var base='brdg-spotlight-'+slug()+'-';
+    (function next(i){
+      if(i>=SEQ.length){ finishShare(files); return; }
+      renderCanvas(SEQ[i][0]).then(canvasToBlob).then(function(blob){
+        files.push(new File([blob], base+SEQ[i][1]+'.png', {type:'image/png'}));
+        next(i+1);
+      }).catch(function(e){ console.error(e); toast('Could not prepare frames.'); });
+    })(0);
+  }
+  function finishShare(files){
+    var data={files:files, title:'BRDG · Photographer Spotlight'};
+    if(navigator.canShare && navigator.canShare(data)){
+      navigator.share(data).then(function(){ toast('Shared ✓'); })
+        .catch(function(err){ if(err && err.name!=='AbortError') fallbackDownload(files); });
+    } else {
+      toast('Sharing not supported — downloading instead.');
+      fallbackDownload(files);
+    }
+  }
+  function fallbackDownload(files){
+    files.forEach(function(f, i){
+      setTimeout(function(){
+        var url=URL.createObjectURL(f); var a=document.createElement('a');
+        a.href=url; a.download=f.name; a.click(); setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      }, i*220);
+    });
+  }
+
+  /* Bottom-sheet (mobile) */
+  function wireSheet(){
+    var body=document.body;
+    function open(){ body.classList.add('sheet-open'); }
+    function close(){ body.classList.remove('sheet-open'); }
+    document.getElementById('ab-edit').addEventListener('click', open);
+    document.getElementById('sheet-close').addEventListener('click', close);
+    document.getElementById('scrim-cover').addEventListener('click', close);
+  }
+
+  /* PWA: register service worker + install prompt */
+  function wirePWA(){
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+    }
+    var deferred=null, btn=document.getElementById('install');
+    window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; btn.style.display='block'; });
+    btn.addEventListener('click', function(){
+      btn.style.display='none'; if(deferred){ deferred.prompt(); deferred=null; }
+    });
+    window.addEventListener('appinstalled', function(){ btn.style.display='none'; });
+  }
+
+  function boot(){
+    buildWorkFrames(); wireFields(); wireExport(); wireSheet(); wirePWA();
+    render(state); fitScale();
+    window.addEventListener('resize', fitScale);
+    window.addEventListener('orientationchange', function(){ setTimeout(fitScale, 200); });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+</script>
+</body>
+</html>
