@@ -1,0 +1,40 @@
+name: Instagram Scheduler
+
+# Publishes any due posts from instagram/queue.json via the Instagram Graph API.
+# Runs on a cron and can also be triggered manually.
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes (UTC)
+  workflow_dispatch: {}
+
+# Allow the workflow to commit the updated queue back to the branch.
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run scheduler
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+        run: node instagram/scheduler.js
+
+      - name: Commit queue updates
+        run: |
+          if [[ -n "$(git status --porcelain instagram/queue.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add instagram/queue.json
+            git commit -m "chore: update Instagram publish queue [skip ci]"
+            git push
+          else
+            echo "No queue changes to commit."
+          fi

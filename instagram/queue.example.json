@@ -1,0 +1,19 @@
+[
+  {
+    "id": "2026-06-20-launch-photo",
+    "type": "image",
+    "mediaUrl": "https://example.com/path/to/photo.jpg",
+    "caption": "Big announcement coming. #brdgconcept",
+    "publishAt": "2026-06-20T09:00:00Z",
+    "status": "pending"
+  },
+  {
+    "id": "2026-06-21-teaser-reel",
+    "type": "reel",
+    "mediaUrl": "https://example.com/path/to/video.mp4",
+    "coverUrl": "https://example.com/path/to/cover.jpg",
+    "caption": "Behind the scenes 🎬 #brdgconcept",
+    "publishAt": "2026-06-21T17:30:00Z",
+    "status": "pending"
+  }
+]
