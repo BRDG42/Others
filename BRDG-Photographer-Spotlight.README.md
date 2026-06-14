@@ -11,6 +11,7 @@ edit a little text, export 7 export-ready PNGs.
 | `BRDG Photographer Spotlight.dc.html` | The template — all 7 frames, locked identity, Tweaks panel, PNG export. |
 | `image-slot.js` | The `<image-slot>` web component: drag-and-drop photo layers that remember what you drop and are **shared by id**. |
 | `spotlight/` | The same template packaged as an installable, fully-offline phone app (PWA). |
+| `server/` | Optional backend that auto-posts a set to Instagram (5-image carousel + 2 stories) via the Graph API. See `server/README.md`. |
 
 ## Install on your phone (PWA)
 

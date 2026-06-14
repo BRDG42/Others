@@ -141,6 +141,22 @@
   .result-item .ri-actions button{flex:1;appearance:none;border:1px solid rgba(244,241,234,.18);background:#1c1c1c;color:var(--paper);font:inherit;font-size:12px;font-weight:700;padding:10px;border-radius:8px;cursor:pointer;}
   .result-item .ri-actions button.share{background:var(--coral);border-color:var(--coral);color:#fff;}
 
+  /* Publish-to-Instagram panel */
+  .publish-body{padding:16px;max-width:520px;margin:0 auto;width:100%;}
+  .pf{margin-bottom:12px;}
+  .pf label{display:block;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(244,241,234,.55);margin-bottom:6px;}
+  .pf input,.pf textarea{width:100%;background:#1f1f1f;border:1px solid rgba(244,241,234,.14);border-radius:8px;color:var(--paper);font:inherit;font-size:15px;padding:10px 12px;outline:none;}
+  .pf input:focus,.pf textarea:focus{border-color:var(--coral);}
+  .pf textarea{min-height:120px;line-height:1.45;resize:vertical;}
+  .pf-settings{margin:4px 0 14px;border:1px solid rgba(244,241,234,.12);border-radius:8px;padding:2px 12px 8px;}
+  .pf-settings summary{font-size:12px;font-weight:700;color:rgba(244,241,234,.7);cursor:pointer;padding:9px 0;}
+  .pf-confirm{display:flex;align-items:center;gap:10px;font-size:13px;color:rgba(244,241,234,.85);margin:4px 0 14px;}
+  .pf-confirm input{width:18px;height:18px;accent-color:var(--coral);flex:0 0 auto;}
+  #ig-publish{width:100%;}
+  .ig-status{margin-top:14px;font-size:13px;line-height:1.5;min-height:20px;}
+  .ig-status.ok{color:#7ad17a;}
+  .ig-status.err{color:#f2877a;}
+
   #toast{position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);border:1px solid var(--coral);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:12px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:88vw;text-align:center;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
@@ -317,12 +333,34 @@
     <button id="modal-close" class="ab-btn">Close</button>
     <span class="modal-title">7 frames ready</span>
     <span class="modal-actions">
+      <button id="modal-publish" class="ab-btn">Publish to IG</button>
       <button id="modal-save-all" class="ab-btn">Save all</button>
       <button id="modal-share-all" class="ab-btn primary">Share all</button>
     </span>
   </div>
-  <p class="modal-hint">Tap <b>Share</b> on a frame to send it to Instagram, or <b>Save</b> to your device. On iPhone you can also long-press an image → <b>Save to Photos</b>.</p>
+  <p class="modal-hint">Tap <b>Share</b> on a frame to send it to Instagram, or <b>Save</b> to your device. On iPhone you can also long-press an image → <b>Save to Photos</b>. <b>Publish to IG</b> auto-posts the carousel + stories (needs the publisher set up).</p>
   <div id="result-grid" class="result-grid"></div>
+</div>
+
+<!-- Auto-publish via the BRDG publisher backend (Instagram Graph API) -->
+<div id="publish-modal" class="modal" hidden>
+  <div class="modal-bar">
+    <button id="publish-back" class="ab-btn">Back</button>
+    <span class="modal-title">Publish to Instagram</span>
+    <span></span>
+  </div>
+  <div class="publish-body">
+    <p class="modal-hint" style="padding-left:0;padding-right:0;">Posts the <b>5 square frames as one carousel</b> + the <b>2 stories</b> to your connected Instagram Business account. This publishes immediately.</p>
+    <div class="pf"><label>Caption</label><textarea id="ig-caption"></textarea></div>
+    <details class="pf-settings">
+      <summary>Connection settings</summary>
+      <div class="pf"><label>Publisher URL</label><input id="ig-url" type="url" inputmode="url" placeholder="https://your-service.onrender.com"/></div>
+      <div class="pf"><label>Secret</label><input id="ig-secret" type="password" placeholder="x-publish-secret"/></div>
+    </details>
+    <label class="pf-confirm"><input type="checkbox" id="ig-confirm"/> <span>I want to publish this set to Instagram now.</span></label>
+    <button class="act primary" id="ig-publish">Publish carousel + 2 stories</button>
+    <div id="ig-status" class="ig-status"></div>
+  </div>
 </div>
 
 <button id="install">Install app</button>
@@ -565,8 +603,56 @@
     window.addEventListener('appinstalled', function(){ btn.style.display='none'; });
   }
 
+  /* ---- Publish to Instagram (via the BRDG publisher backend) ---- */
+  function fileToDataURL(file){ return new Promise(function(res){ var r=new FileReader(); r.onload=function(){ res(r.result); }; r.readAsDataURL(file); }); }
+  function igStatus(msg, kind){ var el=document.getElementById('ig-status'); el.textContent=msg||''; el.className='ig-status'+(kind?(' '+kind):''); }
+  function defaultCaption(){
+    var s=state;
+    return 'BRDG · Photographer Spotlight — '+(s.edition||DEFAULTS.edition)+'\n\n'+
+      (s.photographerName||DEFAULTS.photographerName)+' · '+(s.handle||DEFAULTS.handle)+' · '+(s.location||DEFAULTS.location)+'\n'+
+      (s.bio||DEFAULTS.bio)+'\n\n#BRDG #PhotographerSpotlight';
+  }
+  function wirePublish(){
+    var url=document.getElementById('ig-url'), sec=document.getElementById('ig-secret'), cap=document.getElementById('ig-caption');
+    url.value=localStorage.getItem('brdg-ig-url')||'';
+    sec.value=localStorage.getItem('brdg-ig-secret')||'';
+    url.addEventListener('input', function(){ localStorage.setItem('brdg-ig-url', url.value.trim()); });
+    sec.addEventListener('input', function(){ localStorage.setItem('brdg-ig-secret', sec.value); });
+    cap.addEventListener('input', function(){ localStorage.setItem('brdg-ig-caption', cap.value); });
+
+    document.getElementById('modal-publish').addEventListener('click', function(){
+      cap.value = localStorage.getItem('brdg-ig-caption') || defaultCaption();
+      document.getElementById('ig-confirm').checked=false; igStatus('');
+      document.getElementById('publish-modal').hidden=false;
+    });
+    document.getElementById('publish-back').addEventListener('click', function(){ document.getElementById('publish-modal').hidden=true; });
+    document.getElementById('ig-publish').addEventListener('click', doPublish);
+  }
+  function doPublish(){
+    var url=(document.getElementById('ig-url').value||'').trim().replace(/\/+$/,'');
+    var secret=document.getElementById('ig-secret').value;
+    var caption=document.getElementById('ig-caption').value;
+    if(!document.getElementById('ig-confirm').checked){ igStatus('Tick the confirm box first.', 'err'); return; }
+    if(!url || !secret){ igStatus('Add your Publisher URL and Secret under Connection settings.', 'err'); return; }
+    if(openItems.length!==7){ igStatus('Render the 7 frames first (Export).', 'err'); return; }
+    var btn=document.getElementById('ig-publish'); btn.disabled=true;
+    igStatus('Publishing… this can take up to a minute.', '');
+    Promise.all(openItems.map(function(it){ return fileToDataURL(it.file); })).then(function(urls){
+      var payload={ caption:caption, carousel:urls.slice(0,5), stories:urls.slice(5,7) };
+      return fetch(url+'/api/publish', { method:'POST', headers:{'content-type':'application/json','x-publish-secret':secret}, body:JSON.stringify(payload) });
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(o){
+        if(o.ok && o.j && o.j.ok){
+          igStatus((o.j.dryRun?'Dry run OK — ':'Published ✓ — ')+'carousel '+o.j.carousel+' · stories '+((o.j.stories||[]).join(', ')), 'ok');
+        } else {
+          igStatus('Failed: '+((o.j&&o.j.error)||('HTTP error')), 'err');
+        }
+      }).catch(function(e){ igStatus('Network error: '+e.message, 'err'); })
+      .finally(function(){ btn.disabled=false; });
+  }
+
   function boot(){
-    buildWorkFrames(); wireFields(); wirePhotoPicks(); wireExport(); wireSheet(); wirePWA();
+    buildWorkFrames(); wireFields(); wirePhotoPicks(); wireExport(); wireSheet(); wirePublish(); wirePWA();
     render(state); fitScale();
     window.addEventListener('resize', fitScale);
     window.addEventListener('orientationchange', function(){ setTimeout(fitScale, 200); });
