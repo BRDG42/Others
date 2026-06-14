@@ -61,6 +61,9 @@
   .stage.square > .frame{transform:scale(var(--k-square));}
   .stage.story  > .frame{transform:scale(var(--k-story));}
   .stage.capturing > .frame{transform:none !important;}
+  /* Editor-only slot affordances (placeholder, replace chip) must never appear
+     in an exported frame. */
+  .stage.capturing [data-slot-ui]{display:none !important;}
 
   /* ── Frame ── */
   .frame{position:relative;transform-origin:top left;overflow:hidden;background:var(--ink);color:var(--paper);}
@@ -68,7 +71,9 @@
   .frame.story{width:1080px;height:1920px;}
   .frame .photo{position:absolute;inset:0;}
   .frame .photo image-slot{display:block;width:100%;height:100%;}
-  .scrim-bottom{position:absolute;left:0;right:0;bottom:0;pointer-events:none;background:linear-gradient(to top,rgba(20,20,20,.94) 0%,rgba(20,20,20,.82) 14%,rgba(20,20,20,.42) 34%,rgba(20,20,20,0) 58%);}
+  /* Full-frame so the gradient has a finite length (a 0-height box makes
+     html2canvas throw a non-finite addColorStop and abort the export). */
+  .scrim-bottom{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(20,20,20,.94) 0%,rgba(20,20,20,.82) 14%,rgba(20,20,20,.42) 34%,rgba(20,20,20,0) 58%);}
   .scrim-top{position:absolute;left:0;right:0;top:0;height:34%;pointer-events:none;background:linear-gradient(to bottom,rgba(20,20,20,.78) 0%,rgba(20,20,20,.3) 45%,rgba(20,20,20,0) 100%);}
   .scrim-bottom.tall{background:linear-gradient(to top,rgba(20,20,20,.95) 0%,rgba(20,20,20,.85) 18%,rgba(20,20,20,.45) 40%,rgba(20,20,20,0) 64%);}
   .hairline{position:absolute;inset:var(--frame-inset);border:var(--hair) solid var(--coral);pointer-events:none;}
@@ -112,6 +117,30 @@
   .hint b{color:rgba(244,241,234,.7);font-weight:700;}
   .scrim-cover{display:none;}
 
+  /* Photo pickers — reliable set/replace on any device */
+  .photo-pick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px;}
+  .photo-pick .pick{appearance:none;border:1px solid rgba(244,241,234,.18);background:#1f1f1f;color:var(--paper);font:inherit;font-size:13px;font-weight:600;padding:12px 11px;border-radius:9px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:9px;}
+  .photo-pick .pick::before{content:"+";display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;border-radius:50%;border:1.5px solid rgba(244,241,234,.4);color:rgba(244,241,234,.55);font-weight:700;font-size:13px;flex:0 0 auto;}
+  .photo-pick .pick.portrait{grid-column:1 / -1;}
+  .photo-pick .pick.filled{border-color:rgba(217,84,63,.6);color:var(--paper);}
+  .photo-pick .pick.filled::before{content:"\2713";border-color:var(--coral);color:var(--coral);}
+
+  /* Results modal */
+  .modal{position:fixed;inset:0;z-index:80;background:#0e0e0e;display:flex;flex-direction:column;overflow:auto;}
+  .modal[hidden]{display:none;}
+  .modal-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:calc(12px + var(--safe-top)) 16px 12px;border-bottom:1px solid rgba(244,241,234,.12);position:sticky;top:0;background:#0e0e0e;z-index:1;}
+  .modal-bar .modal-actions{display:flex;gap:8px;}
+  .modal-title{font-weight:700;font-size:13px;letter-spacing:.3px;color:rgba(244,241,234,.8);}
+  .modal-hint{font-size:12px;color:rgba(244,241,234,.6);padding:12px 16px 0;line-height:1.5;}
+  .modal-hint b{color:var(--paper);}
+  .result-grid{display:flex;flex-wrap:wrap;gap:18px;padding:16px 16px calc(44px + var(--safe-bottom));justify-content:center;}
+  .result-item{display:flex;flex-direction:column;gap:8px;width:300px;max-width:100%;}
+  .result-item img{width:100%;height:auto;border-radius:8px;background:#000;box-shadow:0 8px 24px rgba(0,0,0,.4);display:block;}
+  .result-item .ri-cap{font-size:11px;font-weight:600;letter-spacing:.3px;color:rgba(244,241,234,.6);text-transform:capitalize;}
+  .result-item .ri-actions{display:flex;gap:8px;}
+  .result-item .ri-actions button{flex:1;appearance:none;border:1px solid rgba(244,241,234,.18);background:#1c1c1c;color:var(--paper);font:inherit;font-size:12px;font-weight:700;padding:10px;border-radius:8px;cursor:pointer;}
+  .result-item .ri-actions button.share{background:var(--coral);border-color:var(--coral);color:#fff;}
+
   #toast{position:fixed;left:50%;bottom:calc(28px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);border:1px solid var(--coral);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:12px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:88vw;text-align:center;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
@@ -152,7 +181,7 @@
   <span class="mk">brdg</span>
   <div class="ab-actions">
     <button class="ab-btn" id="ab-edit">Edit</button>
-    <button class="ab-btn primary" id="ab-share">Share</button>
+    <button class="ab-btn primary" id="ab-share">Export</button>
   </div>
 </header>
 
@@ -253,6 +282,16 @@
     <button class="sheet-close" id="sheet-close" aria-label="Close">×</button>
     <div class="brand">brdg<small>Photographer Spotlight</small></div>
 
+    <h3>Photos</h3>
+    <div class="photo-pick">
+      <button class="pick portrait" data-slot="personal-shot">Portrait</button>
+      <button class="pick" data-slot="work-01">Work 01</button>
+      <button class="pick" data-slot="work-02">Work 02</button>
+      <button class="pick" data-slot="work-03">Work 03</button>
+      <button class="pick" data-slot="work-04">Work 04</button>
+    </div>
+    <input id="pick-file" type="file" accept="image/*" style="display:none"/>
+
     <h3>Text</h3>
     <div class="field"><label>Photographer name</label><input id="f-photographerName" type="text" autocapitalize="words" placeholder="e.g. Layla Hassan"/></div>
     <div class="field"><label>@handle</label><input id="f-handle" type="text" autocapitalize="none" placeholder="@laylashoots"/></div>
@@ -262,15 +301,30 @@
 
     <h3>Export</h3>
     <div class="actions">
-      <button class="act primary" id="share-all">Share / Save 7 frames</button>
-      <button class="act ghost" id="export-all">Download 7 PNGs</button>
+      <button class="act primary" id="open-export">Export 7 frames</button>
       <button class="act ghost" id="reset-photos">Reset photos</button>
     </div>
-    <p class="hint">Add the <b>portrait</b> to <b>PERSONAL SHOT</b> and the four shots to <b>WORK 01–04</b>. The portrait + Work 01 carry into the Story automatically. Tap a slot to pick from your library.</p>
+    <p class="hint">Set the <b>Portrait</b> and <b>Work 01–04</b> above. The portrait + Work 01 carry into the Story automatically. Export renders all 7, then you Share or Save each.</p>
   </aside>
 </div>
 
 <div class="scrim-cover" id="scrim-cover"></div>
+
+<!-- Results: render all 7 first, then Share/Save each on a fresh tap (the only
+     way that reliably reaches the iOS share sheet / Photos). -->
+<div id="result-modal" class="modal" hidden>
+  <div class="modal-bar">
+    <button id="modal-close" class="ab-btn">Close</button>
+    <span class="modal-title">7 frames ready</span>
+    <span class="modal-actions">
+      <button id="modal-save-all" class="ab-btn">Save all</button>
+      <button id="modal-share-all" class="ab-btn primary">Share all</button>
+    </span>
+  </div>
+  <p class="modal-hint">Tap <b>Share</b> on a frame to send it to Instagram, or <b>Save</b> to your device. On iPhone you can also long-press an image → <b>Save to Photos</b>.</p>
+  <div id="result-grid" class="result-grid"></div>
+</div>
+
 <button id="install">Install app</button>
 <div id="toast"></div>
 
@@ -381,63 +435,110 @@
     ['cap-c4','carousel-4-work03'],['cap-c5','carousel-5-work04'],['cap-s1','story-1-intro'],['cap-s2','story-2-work01']
   ];
 
-  function downloadCanvas(c, name){
-    var a=document.createElement('a'); a.download=name+'.png'; a.href=c.toDataURL('image/png'); a.click();
+  function saveFile(it){
+    var a=document.createElement('a'); a.href=it.url; a.download=it.name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function canShareFiles(files){ try{ return !!(navigator.canShare && navigator.canShare({files:files})); }catch(e){ return false; } }
+  function shareFiles(files){
+    if(canShareFiles(files)){
+      navigator.share({files:files, title:'BRDG · Photographer Spotlight'})
+        .catch(function(err){ if(err && err.name!=='AbortError' && files.length===1) saveFile({url:URL.createObjectURL(files[0]), name:files[0].name}); });
+    } else if(files.length===1){
+      saveFile({url:URL.createObjectURL(files[0]), name:files[0].name});
+    } else {
+      toast('Sharing not available here — use Save on each frame.');
+    }
+  }
+
+  /* Photo pickers — the reliable way to set/replace a slot on any device
+     (a tap always opens the file picker, even after a slot is filled). */
+  var pendingSlot=null;
+  function wirePhotoPicks(){
+    var file=document.getElementById('pick-file');
+    document.querySelectorAll('.pick').forEach(function(btn){
+      btn.addEventListener('click', function(){ pendingSlot=btn.getAttribute('data-slot'); file.value=''; file.click(); });
+    });
+    file.addEventListener('change', function(){
+      var f=file.files && file.files[0]; if(!f || !pendingSlot) return;
+      var reader=new FileReader();
+      reader.onload=function(){ window.BRDGSlots.set(pendingSlot, reader.result); updatePickState(); };
+      reader.readAsDataURL(f);
+    });
+    updatePickState();
+  }
+  function updatePickState(){
+    document.querySelectorAll('.pick').forEach(function(btn){
+      var has=window.BRDGSlots && window.BRDGSlots.get(btn.getAttribute('data-slot'));
+      btn.classList.toggle('filled', !!has);
+    });
+  }
+
+  /* Render all 7 to blobs, THEN show a gallery — so each Share/Save runs on a
+     fresh user tap with the image already prepared. iOS only reaches the share
+     sheet / Photos that way (sharing after the long render loses the gesture). */
+  function prepareAll(){
+    var base='brdg-spotlight-'+slug()+'-'; var items=[];
+    return SEQ.reduce(function(chain, pair){
+      return chain.then(function(){
+        return renderCanvas(pair[0]).then(canvasToBlob).then(function(blob){
+          var name=base+pair[1]+'.png';
+          items.push({ name:name, label:pair[1], url:URL.createObjectURL(blob), file:new File([blob], name, {type:'image/png'}) });
+        });
+      });
+    }, Promise.resolve()).then(function(){ return items; });
+  }
+
+  var openItems=[];
+  function clearResults(){ openItems.forEach(function(it){ URL.revokeObjectURL(it.url); }); openItems=[]; }
+
+  function openExport(){
+    document.body.classList.remove('sheet-open');
+    toast('Rendering 7 frames…');
+    prepareAll().then(function(items){
+      clearResults(); openItems=items;
+      var grid=document.getElementById('result-grid'); grid.innerHTML='';
+      items.forEach(function(it){
+        var cell=document.createElement('div'); cell.className='result-item';
+        var img=document.createElement('img'); img.src=it.url; img.alt=it.label; img.loading='lazy';
+        var cap=document.createElement('div'); cap.className='ri-cap'; cap.textContent=it.label.replace(/-/g,' ');
+        var acts=document.createElement('div'); acts.className='ri-actions';
+        var s=document.createElement('button'); s.className='share'; s.textContent='Share';
+        s.addEventListener('click', function(){ shareFiles([it.file]); });
+        var d=document.createElement('button'); d.textContent='Save';
+        d.addEventListener('click', function(){ saveFile(it); });
+        acts.appendChild(s); acts.appendChild(d);
+        cell.appendChild(img); cell.appendChild(cap); cell.appendChild(acts); grid.appendChild(cell);
+      });
+      document.getElementById('modal-share-all').style.display =
+        canShareFiles(items.map(function(i){return i.file;})) ? '' : 'none';
+      var modal=document.getElementById('result-modal'); modal.hidden=false; modal.scrollTop=0;
+      toast('Ready — Share or Save below.');
+    }).catch(function(e){ console.error(e); toast('Could not render frames.'); });
   }
 
   function wireExport(){
     document.querySelectorAll('[data-export]').forEach(function(btn){
       btn.addEventListener('click', function(){
-        var base='brdg-spotlight-'+slug()+'-'+btn.getAttribute('data-name');
-        renderCanvas(btn.getAttribute('data-export')).then(function(c){ downloadCanvas(c,base); })
-          .catch(function(e){ console.error(e); toast('Export failed.'); });
+        var name='brdg-spotlight-'+slug()+'-'+btn.getAttribute('data-name')+'.png';
+        renderCanvas(btn.getAttribute('data-export')).then(canvasToBlob).then(function(blob){
+          saveFile({url:URL.createObjectURL(blob), name:name});
+        }).catch(function(e){ console.error(e); toast('Export failed.'); });
       });
     });
-
-    document.getElementById('export-all').addEventListener('click', function(){
-      var base='brdg-spotlight-'+slug()+'-'; toast('Exporting 7 frames…');
-      (function next(i){
-        if(i>=SEQ.length){ toast('Downloaded all 7 PNGs ✓'); return; }
-        renderCanvas(SEQ[i][0]).then(function(c){ downloadCanvas(c, base+SEQ[i][1]); setTimeout(function(){ next(i+1); }, 220); })
-          .catch(function(e){ console.error(e); toast('Export failed.'); });
-      })(0);
-    });
-
-    document.getElementById('share-all').addEventListener('click', shareAll);
-    document.getElementById('ab-share').addEventListener('click', shareAll);
-
+    document.getElementById('open-export').addEventListener('click', openExport);
+    document.getElementById('ab-share').addEventListener('click', openExport);
     document.getElementById('reset-photos').addEventListener('click', function(){
-      if(window.BRDGSlots){ window.BRDGSlots.clearAll(); toast('Photos cleared.'); }
+      if(window.BRDGSlots){ window.BRDGSlots.clearAll(); updatePickState(); toast('Photos cleared.'); }
     });
-  }
-
-  function shareAll(){
-    toast('Preparing 7 frames…');
-    var files=[]; var base='brdg-spotlight-'+slug()+'-';
-    (function next(i){
-      if(i>=SEQ.length){ finishShare(files); return; }
-      renderCanvas(SEQ[i][0]).then(canvasToBlob).then(function(blob){
-        files.push(new File([blob], base+SEQ[i][1]+'.png', {type:'image/png'}));
-        next(i+1);
-      }).catch(function(e){ console.error(e); toast('Could not prepare frames.'); });
-    })(0);
-  }
-  function finishShare(files){
-    var data={files:files, title:'BRDG · Photographer Spotlight'};
-    if(navigator.canShare && navigator.canShare(data)){
-      navigator.share(data).then(function(){ toast('Shared ✓'); })
-        .catch(function(err){ if(err && err.name!=='AbortError') fallbackDownload(files); });
-    } else {
-      toast('Sharing not supported — downloading instead.');
-      fallbackDownload(files);
-    }
-  }
-  function fallbackDownload(files){
-    files.forEach(function(f, i){
-      setTimeout(function(){
-        var url=URL.createObjectURL(f); var a=document.createElement('a');
-        a.href=url; a.download=f.name; a.click(); setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-      }, i*220);
+    document.getElementById('modal-share-all').addEventListener('click', function(){
+      shareFiles(openItems.map(function(i){return i.file;}));
+    });
+    document.getElementById('modal-save-all').addEventListener('click', function(){
+      openItems.forEach(function(it,i){ setTimeout(function(){ saveFile(it); }, i*200); });
+    });
+    document.getElementById('modal-close').addEventListener('click', function(){
+      document.getElementById('result-modal').hidden=true; clearResults();
     });
   }
 
@@ -465,7 +566,7 @@
   }
 
   function boot(){
-    buildWorkFrames(); wireFields(); wireExport(); wireSheet(); wirePWA();
+    buildWorkFrames(); wireFields(); wirePhotoPicks(); wireExport(); wireSheet(); wirePWA();
     render(state); fitScale();
     window.addEventListener('resize', fitScale);
     window.addEventListener('orientationchange', function(){ setTimeout(fitScale, 200); });
