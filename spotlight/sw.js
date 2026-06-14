@@ -1,6 +1,6 @@
 /* BRDG · Photographer Spotlight — service worker.
    Precaches the whole app shell so it runs fully offline once installed. */
-const CACHE = 'brdg-spotlight-v3';
+const CACHE = 'brdg-spotlight-v4';
 
 const ASSETS = [
   './',

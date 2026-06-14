@@ -70,6 +70,7 @@
   .stage.square > .frame{transform:scale(var(--k-square));}
   .stage.story  > .frame{transform:scale(var(--k-story));}
   .stage.capturing > .frame{transform:none !important;}
+  .stage.capturing [data-slot-ui]{display:none !important;}
 
   /* ───────────────────────────── The frame ───────────────────────────────── */
   .frame{position:relative;transform-origin:top left;overflow:hidden;background:var(--ink);color:var(--paper);}
@@ -80,7 +81,9 @@
   .frame .photo image-slot{display:block;width:100%;height:100%;}
 
   /* Scrims */
-  .scrim-bottom{position:absolute;left:0;right:0;bottom:0;pointer-events:none;
+  /* Full-frame so the gradient has a finite length (a 0-height box makes
+     html2canvas throw a non-finite addColorStop and abort the export). */
+  .scrim-bottom{position:absolute;inset:0;pointer-events:none;
     background:linear-gradient(to top,
       rgba(20,20,20,.94) 0%,
       rgba(20,20,20,.82) 14%,
