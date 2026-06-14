@@ -99,16 +99,15 @@
       this.style.height = '100%';
       this.style.background = '#1b1b1b';
 
-      // The image layer.
-      this._img = document.createElement('img');
-      this._img.alt = '';
-      this._img.draggable = false;
+      // The image layer — a background-image div. html2canvas renders
+      // background-size:cover correctly, but ignores object-fit on <img>
+      // (which made portraits float un-cropped in the tall story frames).
+      this._img = document.createElement('div');
       this._img.style.position = 'absolute';
       this._img.style.inset = '0';
-      this._img.style.width = '100%';
-      this._img.style.height = '100%';
+      this._img.style.backgroundRepeat = 'no-repeat';
+      this._img.style.backgroundPosition = 'center';
       this._img.style.display = 'none';
-      this._img.style.userSelect = 'none';
       this.applyFit(this.getAttribute('fit') || 'cover');
       this.appendChild(this._img);
 
@@ -180,7 +179,7 @@
     };
 
     ImageSlot.prototype.applyFit = function (fit) {
-      if (this._img) this._img.style.objectFit = (fit === 'contain') ? 'contain' : 'cover';
+      if (this._img) this._img.style.backgroundSize = (fit === 'contain') ? 'contain' : 'cover';
     };
 
     ImageSlot.prototype.updateLabel = function () {
@@ -192,12 +191,12 @@
 
     ImageSlot.prototype.applySource = function (src) {
       if (src) {
-        this._img.src = src;
+        this._img.style.backgroundImage = 'url("' + src + '")';
         this._img.style.display = 'block';
         this._ph.style.display = 'none';
         this.setAttribute('data-filled', '');
       } else {
-        this._img.removeAttribute('src');
+        this._img.style.backgroundImage = '';
         this._img.style.display = 'none';
         this._ph.style.display = 'flex';
         this.removeAttribute('data-filled');
