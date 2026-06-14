@@ -1,0 +1,16 @@
+{
+  "name": "brdg-spotlight-publisher",
+  "version": "1.0.0",
+  "description": "Tiny backend that publishes the BRDG Photographer Spotlight set (5-image carousel + 2 stories) to Instagram via the Graph Content Publishing API.",
+  "type": "module",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node index.js",
+    "dry-run": "IG_DRY_RUN=1 node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
