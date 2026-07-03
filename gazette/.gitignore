@@ -1,0 +1,9 @@
+# Source PDFs and OCR intermediates are large; keep them out of git.
+pdf/
+*.pdf
+
+# Run log
+run.log
+full_run.out
+reocr.log
+reocr.out
