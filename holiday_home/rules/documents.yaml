@@ -1,0 +1,60 @@
+# Document and certificate rules.
+
+# Required documents per unit type. These are placeholders for the prototype;
+# the production set must be confirmed against the DCT document checklist.
+# TODO(LRCD): confirm the authoritative per-unit-type document checklist.
+required_documents:
+  apartment:
+    - emirates_id
+    - title_deed_or_tenancy
+    - insurance
+    - adcda_fire_cert
+    - hassantuk_connectivity
+    - unit_photos
+  villa:
+    - emirates_id
+    - title_deed_or_tenancy
+    - insurance
+    - adcda_fire_cert
+    - unit_photos
+  townhouse:
+    - emirates_id
+    - title_deed_or_tenancy
+    - insurance
+    - adcda_fire_cert
+    - unit_photos
+  farm:
+    - emirates_id
+    - title_deed_or_tenancy
+    - insurance
+    - adcda_fire_cert
+    - adafsa_noc
+    - unit_photos
+  caravan:
+    - emirates_id
+    - ownership_proof
+    - insurance
+    - unit_photos
+  floating:
+    - emirates_id
+    - ownership_proof
+    - insurance
+    - maritime_noc
+    - unit_photos
+
+# Cross-document consistency: these fields must match across all documents.
+cross_check_fields:
+  - applicant_name
+  - unit_id
+  - id_number
+
+# Insurance must cover the full license term plus a buffer.
+insurance:
+  must_cover_term_plus_months: 1
+
+# Certificates that must be present and valid for the given unit types.
+required_certificates:
+  adcda_fire_cert:
+    applies_to: [apartment, villa, townhouse, farm]
+  hassantuk_connectivity:
+    applies_to: [apartment]
